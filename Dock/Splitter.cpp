@@ -1,9 +1,8 @@
-#include <stdarg.h>
 #include <QMouseEvent>
 #include <QApplication>
 #include <QChildEvent>
-#include <Splitter.h>
-#include <SplitterHandle.h>
+#include "Splitter.h"
+#include "SplitterHandle.h"
 
 namespace dock {
 static const QEvent::Type ENABLE_UPDATE_EVENT = (QEvent::Type)QEvent::registerEventType(QEvent::User + 200);
@@ -136,8 +135,8 @@ void Splitter::insertWidget(int index, QWidget *w)
         _sizeProportionArray = getProportions(newSizes, true);
         SplitterHandle* h = new SplitterHandle(_orientation, this);
         h->setVisible(true);
-        _handleList.insert(index, h);
-        _widgetList.insert(index, w);
+        _handleList.insert(std::min<int>(index, _handleList.size()), h);
+        _widgetList.insert(std::min<int>(index, _widgetList.size()), w);
     }
     if (w->isHidden())
     {
@@ -511,8 +510,8 @@ bool Splitter::event(QEvent* e)
 void Splitter::onHandlePressEvent(SplitterHandle* h, QMouseEvent* e)
 {
     (void)(h);
-    _startMovePos = e->globalPos();
-    _lastCurPos = e->globalPos();
+    _startMovePos = e->globalPosition().toPoint();
+    _lastCurPos = e->globalPosition().toPoint();
 }
 
 void Splitter::onHandleMoveEvent(SplitterHandle* h, QMouseEvent* e)
@@ -529,26 +528,26 @@ void Splitter::onHandleMoveEvent(SplitterHandle* h, QMouseEvent* e)
     }
     if (_isOpaqueResize)
     {
-        bool moveForward = isMoveForward(e->globalPos(), _lastCurPos);
+        bool moveForward = isMoveForward(e->globalPosition().toPoint(), _lastCurPos);
         if (_isMoveForwardSoonAgo != moveForward && !_lastSizeProportionsInMoving.isEmpty())
         {
             _sizeProportionArray = _lastSizeProportionsInMoving;
             _startMovePos = _lastCurPos;
         }
-        QPoint moveVector = e->globalPos() - _startMovePos;
+        QPoint moveVector = e->globalPosition().toPoint() - _startMovePos;
         int moveDist = (_orientation == Qt::Horizontal) ? moveVector.x() : moveVector.y();
         QList<QRect> geoList = recalcGeometries(_sizeProportionArray);
         QList<int> newSizes = recalcSizesAtMoving(geoList, handIndex, moveDist, _minWidgetSize);
         _lastSizeProportionsInMoving = getProportions(newSizes, true);
         QList<QRect> newGeoList = recalcGeometries(_lastSizeProportionsInMoving);
         resizeChildren(newGeoList);
-        _lastCurPos = e->globalPos();
+        _lastCurPos = e->globalPosition().toPoint();
 
         _isMoveForwardSoonAgo = moveForward;
     }
     else
     {
-        QPoint moveVector = e->globalPos() - _startMovePos;
+        QPoint moveVector = e->globalPosition().toPoint() - _startMovePos;
         int moveDist = (_orientation == Qt::Horizontal) ? moveVector.x() : moveVector.y();
         QList<QRect> geoList = recalcGeometries(_sizeProportionArray);
         QList<int> newSizes = recalcSizesAtMoving(geoList, handIndex, moveDist, _minWidgetSize);
@@ -595,7 +594,7 @@ void Splitter::childEvent(QChildEvent *event)
 {
     if (event->type() == QEvent::ChildRemoved)
     {
-        QWidget *w = qobject_cast<QWidget*>(event->child());
+        QWidget *w = static_cast<QWidget*>(event->child());
         removeWidget(w);
         if (widgetCount() == 0)
         {

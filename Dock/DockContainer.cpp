@@ -5,18 +5,18 @@
 #include <QMouseEvent>
 #include <QLabel>
 #include <QTabWidget>
-#include <QDesktopWidget>
+//#include <QDesktopWidget>
 #include <QMargins>
 #include <QMenu>
 #include <QSignalMapper>
 #include <QJsonArray>
 
-#include <DockContainer.h>
-#include <TabBar.h>
-#include <TabWidget.h>
-#include <DockableWindow.h>
-#include <DockableWindowPool.h>
-#include <Splitter.h>
+#include "DockContainer.h"
+#include "TabBar.h"
+#include "TabWidget.h"
+#include "DockableWindow.h"
+#include "DockableWindowPool.h"
+#include "Splitter.h"
 #include "WindowFactoryManager.h"
 #include "WindowFactory.h"
 
@@ -379,7 +379,7 @@ void DockContainer::tabbedView(DockableWindow *view, TabWidget *tabWidget, int i
 
 TabWidget *DockContainer::floatView(DockableWindow *view, const QString& title)
 {
-    QPoint cusPos = QApplication::desktop()->availableGeometry(view).center();
+    QPoint cusPos = QApplication::primaryScreen()->availableGeometry().center();
     return floatView(view, title, cusPos);
 }
 
@@ -460,7 +460,7 @@ void DockContainer::relocateFloatWindowGeometry(QWidget *floatWindow, QRect geom
 
 QRect DockContainer::getNearestRectInDesktopRect(QRect sourceRect, const QPoint& p)
 {
-    QRect desktopRect = QApplication::desktop()->availableGeometry(p);
+    QRect desktopRect = QApplication::primaryScreen()->availableGeometry();
     if (sourceRect.right() > desktopRect.right())
     {
         sourceRect.moveRight(desktopRect.right());
@@ -545,7 +545,7 @@ void DockContainer::tabBarMousePressEvent(QObject *watched, QEvent *event)
     (void)watched;
 
     QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
-    _mousePressPos = mouseEvent->globalPos();
+    _mousePressPos = mouseEvent->globalPosition().toPoint();
 }
 
 void DockContainer::tabBarMouseReleaseEvent(QObject *watched, QEvent *event)
@@ -558,7 +558,7 @@ void DockContainer::tabBarMouseReleaseEvent(QObject *watched, QEvent *event)
     else
     {
         QMouseEvent* mouseEvent = static_cast<QMouseEvent *>(event);
-        endDragging(mouseEvent->globalPos());
+        endDragging(mouseEvent->globalPosition().toPoint());
     }
     for (auto iter = _tabBarSet.begin(); iter != _tabBarSet.end(); iter++)
     {
@@ -573,13 +573,13 @@ void DockContainer::tabBarMouseReleaseEvent(QObject *watched, QEvent *event)
 void DockContainer::tabBarMouseMoveEvent(QObject *watched, QEvent *event)
 {
     QMouseEvent* mouseEvent = static_cast<QMouseEvent *>(event);
-    if ((mouseEvent->globalPos() - _mousePressPos).manhattanLength() > QApplication::startDragDistance())
+    if ((mouseEvent->globalPosition().toPoint() - _mousePressPos).manhattanLength() > QApplication::startDragDistance())
     {
         TabBar *tabBar = qobject_cast<TabBar *>(watched);
         beginDragging(tabBar);
         if (_isDragging)
         {
-            showDragging(mouseEvent->globalPos());
+            showDragging(mouseEvent->globalPosition().toPoint());
         }
     }
 }
@@ -657,7 +657,7 @@ void DockContainer::creatAddTabMenu(QMenu *parentMenu)
                 action->setEnabled(false);
                 continue;
             }
-            connect(action, SIGNAL(triggered()), signalMapper, SLOT(map()));
+            connect(action, SIGNAL(triggered(bool)), signalMapper, SLOT(map()));
             signalMapper->setMapping(action, (uint)iter->first);
             if (_contextMenuTabWidget == _maxmizedTempTabWidget)
             {
@@ -665,7 +665,7 @@ void DockContainer::creatAddTabMenu(QMenu *parentMenu)
             }
         }    
     }
-    connect(signalMapper, SIGNAL(mapped(int)), this, SLOT(onAddTab(int)));
+    connect(signalMapper, &QSignalMapper::mappedInt, this, &DockContainer::onAddTab);
 }
 
 bool DockContainer::isLastTabInMainWindow(TabBar *tabBar)
@@ -1171,9 +1171,11 @@ void DockContainer::endDragByCancelled()
     }
     TabBar *sourceTabBar = _sourceTabWidget->tabBar();
     QPoint tabCenter = sourceTabBar->tabRect(_sourceTabIndex).center();
+    auto gloablPointer = sourceTabBar->mapToGlobal(tabCenter);
     QMouseEvent mouseEventRlease(
         QEvent::MouseButtonRelease,
         QPointF(tabCenter),
+        gloablPointer,
         Qt::LeftButton,
         Qt::LeftButton,
         Qt::NoModifier);
@@ -1335,9 +1337,12 @@ void DockContainer::onHoverWidgetChanged(QPoint curPos, HoverWidgetData &newHove
     {
         TabBar *oldTargetBar = qobject_cast<TabBar *>(_hoverWidgetData.horverWidget);
         QPoint tabCenter = oldTargetBar->tabRect(oldTargetBar->currentIndex()).center();
+        auto gloablPointer = oldTargetBar->mapToGlobal(tabCenter);
+
         QMouseEvent mouseEventRlease(
             QEvent::MouseButtonRelease,
             QPointF(tabCenter),
+            tabCenter,
             Qt::LeftButton,
             Qt::LeftButton,
             Qt::NoModifier);
@@ -1361,9 +1366,12 @@ void DockContainer::onHoverWidgetChanged(QPoint curPos, HoverWidgetData &newHove
             tempTabIndex = targetBar->count() - 1;
         }
         tabCenter = targetBar->tabRect(tempTabIndex).center();
+        auto gloablPointer = targetBar->mapToGlobal(tabCenter);
+
         QMouseEvent mouseEventpress(
             QEvent::MouseButtonPress,
             QPointF(tabCenter),
+            tabCenter,
             Qt::LeftButton,
             Qt::LeftButton,
             Qt::NoModifier);
@@ -1392,6 +1400,7 @@ void DockContainer::whenDragOnTabBar(TabBar *targetTabBar, QPoint   targetPos)
     QMouseEvent mouseEventMove(
         QEvent::MouseMove,
         QPointF(targetTabBar->mapFromGlobal(targetPos)),
+        targetPos,
         Qt::LeftButton,
         Qt::LeftButton,
         Qt::NoModifier);
@@ -1555,7 +1564,7 @@ QWidget *DockContainer::widgetAt(QPoint p)
     else if (qobject_cast<TabBar *>(currentWidget) == nullptr)
     {
         QWidget *topLevelWindow = currentWidget;
-        while (!topLevelWindow->isTopLevel() && topLevelWindow->parentWidget() != nullptr)
+        while (!topLevelWindow->isWindow() && topLevelWindow->parentWidget() != nullptr)
         {
             topLevelWindow = topLevelWindow->parentWidget();
         }

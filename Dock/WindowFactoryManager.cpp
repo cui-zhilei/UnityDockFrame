@@ -1,4 +1,4 @@
-#include <WindowFactoryManager.h>
+#include "WindowFactoryManager.h"
 namespace dock {
 
 WindowFactoryManager* WindowFactoryManager::getInstance()

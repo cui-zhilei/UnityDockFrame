@@ -4,9 +4,9 @@
 #include <QMenu>
 #include <QMouseEvent>
 
-#include <TabWidget.h>
-#include <TabBar.h>
-#include <DockableWindow.h>
+#include "TabWidget.h"
+#include "TabBar.h"
+#include "DockableWindow.h"
 
 namespace dock{
 

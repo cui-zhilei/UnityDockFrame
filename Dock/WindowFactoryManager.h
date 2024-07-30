@@ -23,7 +23,7 @@ class DOCKSHARED_EXPORT WindowFactoryManager
 {
 public:
     void registerFactory(uint typeId, WindowFactory *fac, bool needDelete = false);
-    int getFactoryCount() {return _factorys.size();}
+    int getFactoryCount() {return (int)_factorys.size();}
     WindowFactory *getFactory(uint typeId) ;
 
     static WindowFactoryManager *getInstance();

@@ -14,7 +14,7 @@
 #include <QJsonObject>
 #include <QDebug>
 
-#include <WindowFactoryManager.h>
+#include "WindowFactoryManager.h"
 
 //声明窗口工厂
 //@param ClassName:类名称

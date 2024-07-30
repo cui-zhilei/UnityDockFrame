@@ -1,7 +1,7 @@
 #include <QDebug>
 #include <QCoreApplication>
 
-#include <TabBar.h>
+#include "TabBar.h"
 
 namespace dock {
 

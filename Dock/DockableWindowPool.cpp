@@ -1,5 +1,5 @@
-#include <DockableWindowPool.h>
-#include <DockableWindow.h>
+#include "DockableWindowPool.h"
+#include "DockableWindow.h"
 
 namespace dock {
 

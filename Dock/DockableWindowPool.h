@@ -13,7 +13,7 @@
 #include <QSet>
 #include <QMap>
 
-#include <WindowFactoryManager.h>
+#include "WindowFactoryManager.h"
 
 class QWidget;
 

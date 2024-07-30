@@ -1,4 +1,4 @@
-#include <SplitterHandle.h>
+#include "SplitterHandle.h"
 namespace dock {
 
 SplitterHandle::SplitterHandle(Qt::Orientation orientation, QWidget *parent)
