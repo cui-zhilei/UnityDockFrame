@@ -8,6 +8,8 @@
 
 UnityDockFrame is a Qt-based dockable window system designed to implement Unity Editor-style interface layout functionality. The Unity Editor is renowned for its flexible and powerful window docking system, which allows users to freely adjust the interface layout according to their personal workflow, improving work efficiency.
 
+![Demo](Demo.gif)
+
 ## Unity Editor Docking Features
 
 The Unity Editor's docking system has the following core characteristics:
