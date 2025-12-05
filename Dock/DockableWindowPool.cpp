@@ -10,7 +10,15 @@ DockableWindowPool::DockableWindowPool()
 
 bool DockableWindowPool::isDockedWindow(QWidget *w)
 {
+    if (w == nullptr)
+    {
+        return false;
+    }
     DockableWindow *window = qobject_cast<DockableWindow*>(w);
+    if (window == nullptr)
+    {
+        return false;
+    }
     return _mapVisibleWindowToTypeID.contains(window);
 }
 
@@ -38,7 +46,7 @@ DockableWindow *DockableWindowPool::newWindow(uint type)
         for (int i = 0; i < windowList.size(); i++)
         {
             DockableWindow *w = windowList[i];
-            if (!_mapVisibleWindowToTypeID.contains(w))//如果窗体不可见，则加入到可见容器列表里
+            if (!_mapVisibleWindowToTypeID.contains(w))// If the window is not visible, add it to the visible container list
             {
                 _mapVisibleWindowToTypeID.insert(w, qMakePair(w->windowType(), i));
                 return w;
@@ -47,7 +55,7 @@ DockableWindow *DockableWindowPool::newWindow(uint type)
             {
                 if (f->isUnique())
                 {
-                    //如果窗体是独一无二的，则返回空
+                    // If the window is unique, return nullptr
                     return nullptr;
                 }
             }
@@ -58,7 +66,24 @@ DockableWindow *DockableWindowPool::newWindow(uint type)
     return w;
 }
 
-DockableWindow *DockableWindowPool::getOneVisibleWindow(uint type)
+DockableWindow* DockableWindowPool::getFistVisibleWindow(uint type)
+{
+    if (!_mapTypeToWindowList.contains(type))
+    {
+        return nullptr;
+    }
+    QList<DockableWindow*> list = _mapTypeToWindowList[type];
+    for (int i = 0; i < list.size(); i++)
+    {
+        if (_mapVisibleWindowToTypeID.contains(list[i]) && list[i]->isVisible())
+        {
+            return list[i];
+        }
+    }
+    return nullptr;
+}
+
+DockableWindow *DockableWindowPool::getOneExistedWindow(uint type)
 {
     if (!_mapTypeToWindowList.contains(type))
     {
@@ -143,7 +168,10 @@ void DockableWindowPool::deleteWindow(DockableWindow *w)
     _mapTypeToWindowList[iterType_WindowList.key()] = windowList;
     for (int i = wId; i < windowList.size(); i++)
     {
-        _mapVisibleWindowToTypeID[windowList[i]] = qMakePair(type, i);
+        if (i >= 0 && i < windowList.size() && windowList[i] != nullptr)
+        {
+            _mapVisibleWindowToTypeID[windowList[i]] = qMakePair(type, i);
+        }
     }
 }
 

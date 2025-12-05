@@ -37,12 +37,16 @@ WindowFactory * WindowFactoryManager::getFactory(uint typeId)
 
     if (typeId == 0)
     {
-        return _factorys.begin()->second;
+        if (!_factorys.empty())
+        {
+            return _factorys.begin()->second;
+        }
+        return nullptr;
     }
     auto it = _factorys.find(typeId);
     if (it != _factorys.end())
     {
-        return _factorys.at(typeId);
+        return it->second;
     }
     return nullptr;
 }

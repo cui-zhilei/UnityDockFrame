@@ -8,9 +8,9 @@ QT       += core gui
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
-TARGET = TestDock
+TARGET = UnityDockFrame-Demo
 TEMPLATE = app
-
+DEFINES += DOCK_USE_DLL
 CONFIG(debug, debug|release){
     DESTDIR = $$PWD/../Bin/Debug
 } else {
@@ -24,7 +24,6 @@ QMAKE_RPATHDIR += $$DESTDIR
 # depend on your compiler). Please consult the documentation of the
 # deprecated API in order to know how to port your code away from it.
 DEFINES += QT_DEPRECATED_WARNINGS
-
 # You can also make your code fail to compile if you use deprecated APIs.
 # In order to do so, uncomment the following line.
 # You can also select to disable deprecated APIs only up to a certain version of Qt.
@@ -32,8 +31,8 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 
 SOURCES += \
-        main.cpp \
-        MainWindow.cpp \
+    main.cpp \
+    MainWindow.cpp \
     BlackWindow.cpp \
     CyanWindow.cpp \
     RedWindow.cpp \
@@ -41,7 +40,7 @@ SOURCES += \
     BlueWindow.cpp
 
 HEADERS += \
-        MainWindow.h \
+    MainWindow.h \
     MyDockContainer.h \
     BlackWindow.h \
     CyanWindow.h \
@@ -52,7 +51,7 @@ HEADERS += \
 INCLUDEPATH += ./../Dock
 
 SUBDIRS += \
-    TestDock.pro
+    UnityDockFrame-Demo.pro
 
 DISTFILES += \
-    TestDock.pro.user
+    UnityDockFrame-Demo.pro.user

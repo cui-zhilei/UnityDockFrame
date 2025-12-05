@@ -8,8 +8,10 @@ QT       += widgets
 
 TARGET = Dock
 TEMPLATE = lib
-
+CONFIG += moc
+CONFIG += shared
 DEFINES += DOCK_LIBRARY
+DEFINES += DOCK_USE_DLL
 
 # The following define makes your compiler emit warnings if you use
 # any feature of Qt which as been marked as deprecated (the exact warnings

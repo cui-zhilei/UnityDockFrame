@@ -67,6 +67,10 @@ QList<float> Splitter::getProportions(const QList<int>& sizes, bool isContainHan
     float sumSizes = sumInts(list);
     QList<float> sizePropotions;
     sizePropotions.clear();
+    if (sumSizes == 0.0f || list.isEmpty())
+    {
+        return sizePropotions;
+    }
     for (int i = 0; i < list.size(); i++)
     {
         float size = (list.at(i) / sumSizes);
@@ -95,9 +99,10 @@ int Splitter::indexOf(QWidget *w) const
 QList<int> Splitter::sizes() const
 {
     QList<int> sizes;
+    int totalSize = getSize(this) - _handleWidth * handleCount();
     for (int i = 0; i < _sizeProportionArray.size(); i++)
     {
-        int size = (int)(_sizeProportionArray[i] * (getSize(this) - _handleWidth * handleCount()));
+        int size = (int)(_sizeProportionArray[i] * totalSize);
         sizes.append(size);
     }
     return sizes;
@@ -158,19 +163,25 @@ void Splitter::resizeChildren(const QList<QRect>& geoList)
         if (i % 2 == 0)
         {
             int widgetIndex = i / 2;
-            QWidget *w = _widgetList.at(widgetIndex);
-            if (w->geometry() != newGeometry)
+            if (widgetIndex >= 0 && widgetIndex < _widgetList.size())
             {
-                w->setGeometry(newGeometry);
+                QWidget *w = _widgetList.at(widgetIndex);
+                if (w != nullptr && w->geometry() != newGeometry)
+                {
+                    w->setGeometry(newGeometry);
+                }
             }
         }
         else
         {
             int handleIndex = (i + 1) / 2 - 1;
-            SplitterHandle* h = _handleList.at(handleIndex);
-            if (h->geometry() != newGeometry)
+            if (handleIndex >= 0 && handleIndex < _handleList.size())
             {
-                h->setGeometry(newGeometry);
+                SplitterHandle* h = _handleList.at(handleIndex);
+                if (h != nullptr && h->geometry() != newGeometry)
+                {
+                    h->setGeometry(newGeometry);
+                }
             }
         }
     }
@@ -319,6 +330,10 @@ QList<int> Splitter::recalcSizesAtInserting(
     int need,
     int minSize)
 {
+    if (oldGeo.isEmpty())
+    {
+        return QList<int>();
+    }
     insertedIndex = std::max<int>(insertedIndex, 0);
     insertedIndex = std::min<int>(insertedIndex, oldGeo.size() - 1);
     QList<int> sizeList = getSizesByRects(oldGeo);
@@ -374,11 +389,17 @@ QList<int> Splitter::recalcSizesAtDeleting(const QList<QRect>& oldGeo, int delet
 
     if (deletedWidgetIndex == widgetCount() - 1)
     {
-        sizeList[sizeList.size() - 1] += getSize(oldGeo[oldGeo.size() - 1]) + 4;
+        if (!sizeList.isEmpty() && !oldGeo.isEmpty())
+        {
+            sizeList[sizeList.size() - 1] += getSize(oldGeo[oldGeo.size() - 1]) + 4;
+        }
     }
     else
     {
-        sizeList[indexGeo] += getSize(oldGeo[indexGeo]) + 4;
+        if (indexGeo >= 0 && indexGeo < sizeList.size() && indexGeo < oldGeo.size())
+        {
+            sizeList[indexGeo] += getSize(oldGeo[indexGeo]) + 4;
+        }
     }
 
     return  sizeList;
@@ -386,17 +407,34 @@ QList<int> Splitter::recalcSizesAtDeleting(const QList<QRect>& oldGeo, int delet
 
 QList<int> Splitter::recalcSizesAtMoving(const QList<QRect>& oldGeo, int handleIndex, int moveDist, int minSize)
 {
+    if (oldGeo.isEmpty() || handleIndex < 0 || handleIndex >= _handleList.size())
+    {
+        return QList<int>();
+    }
     QList<int> sizeList = getSizesByRects(oldGeo);
 
     int compressWidgtIndex = (moveDist > 0) ? handleIndex + 1: handleIndex;
+    if (compressWidgtIndex < 0 || compressWidgtIndex >= _widgetList.size())
+    {
+        return sizeList;
+    }
 
     int sumDeduct = 0;
     int start = 2 * compressWidgtIndex;
     while (sumDeduct < abs(moveDist))
     {
+        if (start < 0 || start >= oldGeo.size())
+        {
+            break;
+        }
         const QRect& r = oldGeo[start];
         int s = getSize(r);
-        QWidget *w = _widgetList[start / 2];
+        int widgetListIndex = start / 2;
+        if (widgetListIndex < 0 || widgetListIndex >= _widgetList.size())
+        {
+            break;
+        }
+        QWidget *w = _widgetList[widgetListIndex];
         int widgetMinSize = getSize(w->minimumSize());
         int widgetMinSizeHint = getSize(w->minimumSizeHint());
         minSize = std::max<int>(minSize, widgetMinSize);
@@ -430,6 +468,10 @@ QList<QRect> Splitter::recalcGeometries(const QList<float>& proprotions)
         if (i % 2 == 0)
         {
             int widgetIndex = i / 2;
+            if (widgetIndex < 0 || widgetIndex >= proprotions.size() || widgetIndex >= _widgetList.size())
+            {
+                continue;
+            }
             float prop = proprotions.at(widgetIndex);
             size = totalWidgetSize * prop;
             QWidget *w = _widgetList[widgetIndex];
@@ -553,7 +595,12 @@ void Splitter::onHandleMoveEvent(SplitterHandle* h, QMouseEvent* e)
         QList<int> newSizes = recalcSizesAtMoving(geoList, handIndex, moveDist, _minWidgetSize);
         _lastSizeProportionsInMoving = getProportions(newSizes, true);
         QList<QRect> newGeoList = recalcGeometries(_lastSizeProportionsInMoving);
-        QRect handleGeometry = newGeoList.at(2 * handIndex + 1);
+        int handleGeoIndex = 2 * handIndex + 1;
+        if (handleGeoIndex < 0 || handleGeoIndex >= newGeoList.size())
+        {
+            return;
+        }
+        QRect handleGeometry = newGeoList.at(handleGeoIndex);
         handleGeometry.moveTo(this->mapToGlobal(handleGeometry.topLeft()));
         if (_floatHandle == nullptr)
         {

@@ -1,8 +1,8 @@
 /**********************************************************
 * @file        DockedTabBar.h
-* @brief    停靠框架内的分隔条控件
+* @brief    Splitter handle control within the docking framework
 *
-* @author    崔志雷
+* @author    Cuizhilei
 * @date     2017.4
 * @version  1.0.0
 *

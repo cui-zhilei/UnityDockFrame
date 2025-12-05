@@ -1,14 +1,15 @@
 /**********************************************************
 * @file        DockableWindow.h
-* @brief    可停靠窗口基类
+* @brief    Base class for dockable windows
 *
-* @author    崔志雷
+* @author    Cuizhilei
 * @date     2017.4
 * @version  1.0.0
 *
 ***********************************************************/
 #ifndef DOCKABLE_H
 #define DOCKABLE_H
+#include "dock_global.h"
 
 #include <QWidget>
 #include <QJsonObject>
@@ -16,10 +17,10 @@
 
 #include "WindowFactoryManager.h"
 
-//声明窗口工厂
-//@param ClassName:类名称
-//@param ClassName:窗口默认标题
-//@param IsUnique: 窗口是否只能有一个实例
+// Declare window factory
+//@param ClassName: Class name
+//@param Title: Default window title
+//@param IsUnique: Whether the window can only have one instance
 #define DEC_WINDOW_FACTORY(ClassName, Title, IsUnique)							\
 class ClassName##Factory : public dock::WindowFactory							\
 {																				\
@@ -37,10 +38,10 @@ public:																			\
     }                                                                           \
 };
 
-//静态注册宏,如果不需要自动注册，可使用DEC_WINDOW_FACTORY和REGISTER_WINDOW
-//@param ClassName:类名称
-//@param ClassName:窗口默认标题
-//@param IsUnique: 窗口是否只能有一个实例
+// Static registration macro, if automatic registration is not needed, use DEC_WINDOW_FACTORY and REGISTER_WINDOW
+//@param ClassName: Class name
+//@param Title: Default window title
+//@param IsUnique: Whether the window can only have one instance
 #define STATIC_REGISTER_WINDOW(ClassName, Title, IsUnique)						\
         DEC_WINDOW_FACTORY(ClassName, Title, IsUnique)							\
 static ClassName##Factory g_##ClassName##FactoryInstance;
@@ -48,6 +49,8 @@ static ClassName##Factory g_##ClassName##FactoryInstance;
 #define REGISTER_WINDOW(ClassName)												\
         WindowFactoryManager::getInstance()->registerFactory(qHash(QString(#ClassName)), \
         new ClassName##Factory, true);
+
+#define WINDOW_TYPE_ID(ClassName)  qHash(QString(#ClassName)
 
 class QMenu;
 

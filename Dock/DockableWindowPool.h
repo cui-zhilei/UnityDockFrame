@@ -1,8 +1,8 @@
 /**********************************************************
 * @file     DockableWindowPool.h
-* @brief    窗口池,切换布局时，隐藏所有窗口,而不是关闭所有窗口；
-* 			目的是，保证处于已有窗口内容不变
-* @author   崔志雷
+* @brief    Window pool, when switching layouts, hide all windows instead of closing them;
+*           The purpose is to ensure that the content of existing windows remains unchanged
+* @author   Cuizhilei
 * @date     2017.4
 * @version  1.0.0
 *
@@ -31,7 +31,8 @@ public:
 
     DockableWindow *newWindow(uint type = 0);
     DockableWindow *getWindow(uint type, int winId);
-    DockableWindow *getOneVisibleWindow(uint type);
+    DockableWindow *getOneExistedWindow(uint type);
+    DockableWindow* getFistVisibleWindow(uint type);
 
     void deleteWindow(DockableWindow* w);
     void hideAllWindowsBeforeChangeLayout();
@@ -40,10 +41,10 @@ public:
     bool hasVisibleWindow(int type);
 
 private:
-    //存储目前处于显示状态的窗口
+    // Store currently visible windows
     QMap<DockableWindow *, QPair<uint /*type*/, int /*id*/>> _mapVisibleWindowToTypeID;
 
-    //存储所有窗口
+    // Store all windows
     QMap<uint, QList<DockableWindow *>> _mapTypeToWindowList;
 };
 }

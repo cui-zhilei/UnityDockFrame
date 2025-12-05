@@ -1,8 +1,8 @@
 /**********************************************************
 * @file        DockContainer.h
-* @brief    自定义的可停靠窗口容器类
+* @brief    Custom dockable window container class
 *
-* @author    崔志雷
+* @author    Cuizhilei
 * @date     2017.4
 * @version  1.0.0
 *
@@ -45,7 +45,8 @@ public:
     void createLayoutFromJson(const QJsonObject &jsonObj);
     void enableDrag(bool bEnable);
 
-    virtual void createDefaultLayout();
+    virtual void initLayout();
+    DockableWindow* getFirstVisibleWindow(uint type);
 
 private slots:
     void onSplitterDestroyed(QObject *obj);

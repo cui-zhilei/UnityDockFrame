@@ -63,13 +63,19 @@ int TabWidget::insertTab(int index, QWidget *page, const QString &label)
 
 QString TabWidget::tabText(int index)
 {
-    Q_ASSERT(index >= 0 && index < _tabBar->count());
+    if (_tabBar == nullptr || index < 0 || index >= _tabBar->count())
+    {
+        return QString();
+    }
     return _tabBar->tabText(index);
 }
 
 QWidget *TabWidget::widget(int index)
 {
-    Q_ASSERT(index >= 0 && index < _stackedWidget->count());
+    if (_stackedWidget == nullptr || index < 0 || index >= _stackedWidget->count())
+    {
+        return nullptr;
+    }
     return _stackedWidget->widget(index);
 }
 
@@ -96,7 +102,10 @@ void TabWidget::insertOnlyWidget(int index, QWidget *page)
 
 void TabWidget::removeOnlyTab(int index)
 {
-    Q_ASSERT(index >= 0 && index < _tabBar->count());
+    if (_tabBar == nullptr || index < 0 || index >= _tabBar->count())
+    {
+        return;
+    }
     _tabBar->removeTab(index);
 }
 
@@ -116,8 +125,11 @@ void TabWidget::addTempTab(int index, QString& label)
 QWidget *TabWidget::removeTabAndWidget(int index)
 {
     QWidget *removedWidget = widget(index);
-    removeOnlyTab(index);
-    removeOnlyWidget(removedWidget);
+    if (removedWidget != nullptr)
+    {
+        removeOnlyTab(index);
+        removeOnlyWidget(removedWidget);
+    }
     return removedWidget;
 }
 

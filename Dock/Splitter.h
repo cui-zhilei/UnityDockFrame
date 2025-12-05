@@ -1,8 +1,8 @@
 /**********************************************************
 * @file        SplitterForDock.h
-* @brief    停靠框架内的分隔控件
+* @brief    Splitter control within the docking framework
 *
-* @author    崔志雷
+* @author    Cuizhilei
 * @date     2017.4
 * @version  1.0.0
 *

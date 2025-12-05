@@ -3,6 +3,7 @@
 
 #include "DockableWindow.h"
 
+
 class QMenu;
 class BlackWindow : public dock::DockableWindow
 {

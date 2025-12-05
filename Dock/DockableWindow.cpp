@@ -15,13 +15,31 @@ DockableWindow::~DockableWindow()
 QString DockableWindow::getTitle()
 {
     auto pManager = dock::WindowFactoryManager::getInstance();
-    auto pFactory = pManager->getFactory((int)qHash(QString(metaObject()->className())));
+    if (pManager == nullptr)
+    {
+        return QString();
+    }
+    const QMetaObject *meta = metaObject();
+    if (meta == nullptr)
+    {
+        return QString();
+    }
+    auto pFactory = pManager->getFactory((int)qHash(QString(meta->className())));
+    if (pFactory == nullptr)
+    {
+        return QString();
+    }
     return pFactory->getTitle();
 }
 
 int DockableWindow::windowType()
 {
-    return (int)qHash(QString(metaObject()->className()));
+    const QMetaObject *meta = metaObject();
+    if (meta == nullptr)
+    {
+        return 0;
+    }
+    return (int)qHash(QString(meta->className()));
 }
 
 }

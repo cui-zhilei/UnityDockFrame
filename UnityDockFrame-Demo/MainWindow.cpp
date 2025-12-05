@@ -91,7 +91,7 @@ void MainWindow::onSaveLayout()
 
 void MainWindow::onDefaultLayout()
 {
-    m_pContainer->createDefaultLayout();
+    m_pContainer->initLayout();
 }
 
 void MainWindow::onFixLayout(bool bChecked)

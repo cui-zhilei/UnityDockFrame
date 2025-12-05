@@ -1,8 +1,8 @@
 /**********************************************************
 * @file        WindowFactoryManager.h
-* @brief    停靠窗口工厂管理类
+* @brief    Dockable window factory management class
 *
-* @author    崔志雷
+* @author    Cuizhilei
 * @date     2017.4
 * @version  1.0.0
 *
