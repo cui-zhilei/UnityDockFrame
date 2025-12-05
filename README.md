@@ -6,60 +6,37 @@
 
 ## Project Overview
 
-UnityDockFrame is a Qt-based dockable window system designed to implement Unity Editor-style interface layout functionality. The Unity Editor is renowned for its flexible and powerful window docking system, which allows users to freely adjust the interface layout according to their personal workflow, improving work efficiency.
+UnityDockFrame is a Qt-based dockable window system that implements Unity Editor-style interface layout functionality, allowing users to freely adjust interface layouts according to their workflow.
 
 ![Demo](Demo.gif)
 
-## Unity Editor Docking Features
+## Features
 
-The Unity Editor's docking system has the following core characteristics:
-
-1. **Flexible Window Layout**
-   - Support dragging any window to different positions in the editor (top, bottom, left, right, or central area)
-   - Automatically display docking previews, intuitively indicating where the window will be docked
-   - Support nested docking between windows to create complex multi-window layouts
-
-2. **Tabbed Window Management**
-   - Multiple windows in the same area are automatically organized as tabs
-   - Quick switching between different function windows via tabs
-   - Support dragging windows from tabs to other positions
-
-3. **Floating Window Support**
-   - Windows can be detached from the main editor to become independent floating windows
-   - Floating windows can be dragged back to the main editor area for docking
-   - Support window layouts across multiple monitors
-
-4. **Layout Save and Restore**
-   - Support saving custom window layout configurations
-   - Quickly switch between different work layouts (such as 2D editing layout, 3D editing layout, animation editing layout, etc.)
-   - Automatically restore the last used layout after restarting the editor
-
-## UnityDockFrame Implementation
-
-The UnityDockFrame project draws on the design concepts of the Unity Editor's docking system and implements a fully functional dockable window system based on the Qt framework. Its main features include:
-
-- Support window dragging, docking, floating, and maximizing operations
-- Provide tabbed window layout management
-- Implement flexible split layouts based on custom Splitter
-- Support layout saving and loading functions
-- Provide a window factory mechanism for easy extension of custom window types
-- Support fixed layouts to prevent accidental drag modification
-
-This project is suitable for Qt application development that requires flexible interface layouts, such as IDEs, image editors, data analysis tools, etc.
-
-## Core Features
+UnityDockFrame draws on the Unity Editor's design concepts to create a fully functional dockable window system with the following key features:
 
 - **Flexible Window Management**
-  - Support dragging windows to dock at different positions of the container (top, bottom, left, right)
-  - Support window floating and maximizing operations
-  - Support tabbed window layout, allowing switching between multiple windows in the same container
-  - Provide window context menu, supporting custom operations
+  - Drag windows to dock at different positions (top, bottom, left, right, central area)
+  - Support for floating and maximizing windows
+  - Tabbed window layout with quick switching
+  - Customizable window context menus
 
 - **Powerful Layout System**
-  - Flexible split layout based on custom Splitter
-  - Support saving layouts as JSON format files
-  - Support loading layouts from JSON files
-  - Support fixed layout to prevent drag modification
+  - Flexible split layouts based on custom Splitter
+  - Save/load layouts as JSON files
+  - Support for fixed layouts to prevent accidental modification
+  - Automatic layout restoration on restart
+
+- **Convenient Window Factory Mechanism**
+  - Factory pattern for window registration and creation
+  - Support for both static and dynamic window registration
+  - Unique instance windows (singleton support)
+
+- **Excellent Extensibility**
+  - Base class `DockableWindow` for custom window development
+  - Window type ID identification for easy management
+  - Window state saving and restoration support
+
+This project is suitable for Qt applications requiring flexible interface layouts, such as IDEs, image editors, and data analysis tools.
 
 ## UnityDockFrame-Demo Example Introduction
 
