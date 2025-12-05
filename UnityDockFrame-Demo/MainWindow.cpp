@@ -17,16 +17,16 @@ using namespace dock;
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
-    //动态注册时，需要调用此宏注册
+    //When using dynamic registration, call this macro
     //REGISTER_WINDOW(BlackWindow);
 
     this->setCentralWidget(new QWidget());
     m_pContainer = new DockContainer(this->centralWidget());
 
     QMenuBar *pMenuBar = menuBar();
-    pMenuBar->addMenu(QStringLiteral("菜单1"));
+    pMenuBar->addMenu(QStringLiteral("Menu 1"));
 
-    QMenu *pWindowMenu = pMenuBar->addMenu(QStringLiteral("窗口"));
+    QMenu *pWindowMenu = pMenuBar->addMenu(QStringLiteral("Window"));
     auto factories = dock::WindowFactoryManager::getInstance()->getAllFactorys();
 
     auto signalMapper = new QSignalMapper(this);
@@ -39,19 +39,19 @@ MainWindow::MainWindow(QWidget *parent)
     }
     connect(signalMapper, SIGNAL(mapped(int)), this, SLOT(onCreateWindow(int)));
 
-    QMenu *pLayoutMenu = pMenuBar->addMenu(QStringLiteral("布局"));
-    QAction *pActionLayout1 = pLayoutMenu->addAction(QStringLiteral("布局1"));
+    QMenu *pLayoutMenu = pMenuBar->addMenu(QStringLiteral("Layout"));
+    QAction *pActionLayout1 = pLayoutMenu->addAction(QStringLiteral("Layout 1"));
     connect(pActionLayout1, &QAction::triggered, this, &MainWindow::onLayout1);
-    QAction *pActionLayout2 =pLayoutMenu->addAction(QStringLiteral("布局2"));
+    QAction *pActionLayout2 =pLayoutMenu->addAction(QStringLiteral("Layout 2"));
     connect(pActionLayout2, &QAction::triggered, this, &MainWindow::onLayout2);
-    QAction *pActionSaveLayout =pLayoutMenu->addAction(QStringLiteral("保存布局"));
+    QAction *pActionSaveLayout =pLayoutMenu->addAction(QStringLiteral("Save Layout"));
     connect(pActionSaveLayout, &QAction::triggered, this, &MainWindow::onSaveLayout);
-    QAction *pActionOpenLayout =pLayoutMenu->addAction(QStringLiteral("打开布局"));
+    QAction *pActionOpenLayout =pLayoutMenu->addAction(QStringLiteral("Open Layout"));
     connect(pActionOpenLayout, &QAction::triggered, this, &MainWindow::onOpenLayout);
-    QAction *pActionDefaultLayout =pLayoutMenu->addAction(QStringLiteral("默认布局"));
+    QAction *pActionDefaultLayout =pLayoutMenu->addAction(QStringLiteral("Default Layout"));
     connect(pActionDefaultLayout, &QAction::triggered, this, &MainWindow::onDefaultLayout);
 
-    QAction *pActionFixLayout =pLayoutMenu->addAction(QStringLiteral("固定布局"));
+    QAction *pActionFixLayout =pLayoutMenu->addAction(QStringLiteral("Fix Layout"));
     pActionFixLayout->setCheckable(true);
     connect(pActionFixLayout, &QAction::triggered, this, &MainWindow::onFixLayout);
 
