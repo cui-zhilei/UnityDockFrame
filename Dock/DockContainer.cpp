@@ -47,63 +47,94 @@ const QString c_strWidth                = "Width";
 const QString c_strHeight               = "Height";
 const QString c_strCurrentTabIndex      = "CurrentTabIndex";
 
+class DockContainerPrivate {
+    Q_DECLARE_PUBLIC(DockContainer)
+public:
+    DockContainerPrivate(DockContainer *q)
+        : q_ptr(q)
+        , parentWidget(nullptr)
+        , dockRootWidget(nullptr)
+        , sourceTabWidget(nullptr)
+        , sourceTabIndex(-1)
+        , sourceView(nullptr)
+        , filterSwitch(true)
+        , isDragging(false)
+        , templateFormOnDrag(nullptr)
+        , contextMenuTabWidget(nullptr)
+        , contextMenuTabIndex(-1)
+        , maxmizedWindow(nullptr)
+        , maxmizedWindowSourceTabWidget(nullptr)
+        , maxmizedWindowSourceTabIndex(-1)
+        , maxmizedTempTabWidget(nullptr)
+        , isDisConnectAll(false)
+        , dockableWindowPool(nullptr)
+        , isDraggingCancelled(false)
+    {}
+
+    DockContainer *q_ptr;
+    QWidget *parentWidget;
+    QWidget *dockRootWidget;
+    QList<Splitter *> rootSplitterList;
+    QSet<QWidget *> tabBarSet;
+
+    QPoint mousePressPos;
+    TabWidget *sourceTabWidget;
+    int sourceTabIndex;
+    QWidget *sourceView;
+    QString sourceTabText;
+
+    DockContainer::HoverWidgetData hoverWidgetData;
+    bool filterSwitch;
+    bool isDragging;
+    QTabWidget *templateFormOnDrag;
+
+    TabWidget *contextMenuTabWidget;
+    int contextMenuTabIndex;
+
+    DockableWindow *maxmizedWindow;
+    TabWidget *maxmizedWindowSourceTabWidget;
+    int maxmizedWindowSourceTabIndex;
+    TabWidget *maxmizedTempTabWidget;
+    bool isDisConnectAll;
+
+    DockableWindowPool *dockableWindowPool;
+    bool isDraggingCancelled;
+};
+
 DockContainer::DockContainer(QWidget *parent)
     : QObject(parent)
-    , _parentWidget(parent)
-    , _dockRootWidget(nullptr)
-    , _sourceTabWidget(nullptr)
-    , _sourceTabIndex(-1)
-    , _sourceView(nullptr)
-    , _filterSwitch(true)
-    , _isDragging(false)
-    , _templateFormOnDrag(nullptr)
-    , _contextMenuTabWidget(nullptr)
-    , _contextMenuTabIndex(-1)
-    , _maxmizedWindow(nullptr)
-    , _maxmizedWindowSourceTabWidget(nullptr)
-    , _maxmizedWindowSourceTabIndex(-1)
-    , _maxmizedTempTabWidget(nullptr)
-    , _isDisConnectAll(false)
-    , _dockableWindowPool(nullptr)
-    , _isDraggingCancelled(false)
+    , d_ptr(new DockContainerPrivate(this))
 {
+    Q_D(DockContainer);
+    d->parentWidget = parent;
     setObjectName("DockContainer");
 
-    QHBoxLayout* laytout = new QHBoxLayout(_parentWidget);
+    QHBoxLayout* laytout = new QHBoxLayout(d->parentWidget);
     laytout->setSpacing(0);
     laytout->setContentsMargins(0, 0, 0, 0);
-    _dockableWindowPool = new DockableWindowPool();
+    d->dockableWindowPool = new DockableWindowPool();
     initLayout();
 }
 
 DockContainer::~DockContainer()
 {
-    _isDisConnectAll = true;
-    if (nullptr != _dockRootWidget)
-    {
-        delete _dockRootWidget;
-    }
-    if (nullptr != _templateFormOnDrag)
-    {
-        delete _templateFormOnDrag;
-    }
-    if (nullptr != _dockableWindowPool)
-    {
-        delete _dockableWindowPool;
-    }
+    Q_D(DockContainer);
+    d->isDisConnectAll = true;
+    delete d_ptr;
 }
 
 void DockContainer::saveLayoutToJson(QJsonObject &jsonObj)
 {
-    if (_maxmizedWindow != nullptr)
+    Q_D(DockContainer);
+    if (d->maxmizedWindow != nullptr)
     {
         onTabMaxmized();
     }
     QJsonArray floatWindowChildren;
-    for (int i = 0; i < _rootSplitterList.size(); i++)
+    for (int i = 0; i < d->rootSplitterList.size(); i++)
     {
         QJsonObject windowObj;
-        Splitter *rootSplitter = _rootSplitterList[i];
+        Splitter *rootSplitter = d->rootSplitterList[i];
         saveSplitterToJson(rootSplitter, windowObj);
 
         QWidget *floatWindow = rootSplitter->parentWidget();
@@ -132,44 +163,45 @@ void DockContainer::saveLayoutToJson(QJsonObject &jsonObj)
 
 void DockContainer::createLayoutFromJson(const QJsonObject &jsonObj)
 {
-    _tabBarSet.clear();
-    _rootSplitterList.clear();
-    _dockableWindowPool->hideAllWindowsBeforeChangeLayout();
-    if (nullptr != _dockRootWidget)
+    Q_D(DockContainer);
+    d->tabBarSet.clear();
+    d->rootSplitterList.clear();
+    d->dockableWindowPool->hideAllWindowsBeforeChangeLayout();
+    if (nullptr != d->dockRootWidget)
     {
-        _parentWidget->layout()->removeWidget(_dockRootWidget);
-        delete _dockRootWidget;
+        d->parentWidget->layout()->removeWidget(d->dockRootWidget);
+        delete d->dockRootWidget;
     }
-    _dockRootWidget = new QWidget();
-    _dockRootWidget->setObjectName("DockRootWidget");
+    d->dockRootWidget = new QWidget();
+    d->dockRootWidget->setObjectName("DockRootWidget");
 
     QJsonArray childreList = jsonObj.value(c_strFloatWindowChildren).toArray();
     if (childreList.isEmpty())
     {
         return;
     }
-    _parentWidget->layout()->addWidget(_dockRootWidget);
+    d->parentWidget->layout()->addWidget(d->dockRootWidget);
 
-    QHBoxLayout* carrierlaytout = new QHBoxLayout(_dockRootWidget);
+    QHBoxLayout* carrierlaytout = new QHBoxLayout(d->dockRootWidget);
     carrierlaytout->setSpacing(0);
     carrierlaytout->setContentsMargins(0, 0, 0, 0);
     Splitter *mainRootSplitter = createSplitterFromJson(childreList[0].toObject());
     connect(mainRootSplitter, &Splitter::destroyed, this, &DockContainer::onSplitterDestroyed);
     carrierlaytout->addWidget(mainRootSplitter);
-    _rootSplitterList.append(mainRootSplitter);
+    d->rootSplitterList.append(mainRootSplitter);
 
     for (int i = 1; i < childreList.count(); i++)
     {
         QJsonObject windowJsonObj = childreList[i].toObject();
         Splitter *floatRootSplitter = createSplitterFromJson(windowJsonObj);
-        _rootSplitterList.append(floatRootSplitter);
+        d->rootSplitterList.append(floatRootSplitter);
 
         QHBoxLayout *layout = new QHBoxLayout();
         layout->setContentsMargins(0, 0, 0, 0);
         layout->setSpacing(0);
         layout->addWidget(floatRootSplitter);
 
-        QWidget *floatWindow = new QWidget(_dockRootWidget);
+        QWidget *floatWindow = new QWidget(d->dockRootWidget);
         floatWindow->setAttribute(Qt::WA_DeleteOnClose);
         floatWindow->setLayout(layout);
         floatWindow->setWindowFlags(Qt::Window);
@@ -196,11 +228,12 @@ inline Splitter *DockContainer::createSplitterWidget()
 
 void DockContainer::saveSplitterToJson(Splitter *splitter, QJsonObject &jsonObj)
 {
+    Q_D(DockContainer);
     jsonObj.insert(c_strWidgetType, SPLITTER);
     jsonObj.insert(c_strOrientation, splitter->orientation());
 
     int size = 0;
-    if (_rootSplitterList.contains(splitter))
+    if (d->rootSplitterList.contains(splitter))
     {
         size = 1;
     }
@@ -295,7 +328,8 @@ Splitter *DockContainer::createSplitterFromJson(const QJsonObject &jsonObj)
 }
 
 void DockContainer::saveTabWidgetToJson(TabWidget *tabWidget, Qt::Orientation orient, QJsonObject &jsonObj)
-{ 
+{
+    Q_D(DockContainer);
     jsonObj.insert(c_strWidgetType, TABWIDGE);
     int size = 0;
     if (orient == Qt::Horizontal)
@@ -323,7 +357,7 @@ void DockContainer::saveTabWidgetToJson(TabWidget *tabWidget, Qt::Orientation or
         childObj.insert(c_strWindowType, QString::number(wType));
         //if is last modification todo
         {
-            int wId = _dockableWindowPool->windowID(dockableWindow);
+            int wId = d->dockableWindowPool->windowID(dockableWindow);
             wId = jsonObj.value(c_strWindowID).toInt();
             dockableWindow->saveObject(childObj);
         }
@@ -335,6 +369,7 @@ void DockContainer::saveTabWidgetToJson(TabWidget *tabWidget, Qt::Orientation or
 
 TabWidget *DockContainer::createTabWidgetFromJson(const QJsonObject &jsonObj)
 {
+    Q_D(DockContainer);
     int currentTabIndex = jsonObj.value(c_strCurrentTabIndex).toInt();
     int wId = -1;
     if (jsonObj.contains(c_strWindowID))
@@ -351,11 +386,11 @@ TabWidget *DockContainer::createTabWidgetFromJson(const QJsonObject &jsonObj)
         DockableWindow *dockableWindow = nullptr;
         if (wId < 0)
         {
-            dockableWindow = _dockableWindowPool->newWindow(windowType);
+            dockableWindow = d->dockableWindowPool->newWindow(windowType);
         }
         else
         {
-            dockableWindow = _dockableWindowPool->getWindow(windowType, wId);
+            dockableWindow = d->dockableWindowPool->getWindow(windowType, wId);
         }
         if (dockableWindow)
         {
@@ -364,21 +399,23 @@ TabWidget *DockContainer::createTabWidgetFromJson(const QJsonObject &jsonObj)
             dockableWindow->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
             connect(dockableWindow, SIGNAL(destroyed(QObject *)), this, SLOT(onDockableWindowDestroyed(QObject *)));
             tabWidget->addTab(dockableWindow, dockableWindow->getTitle());
-        }            }
+        }
+    }
     tabWidget->setCurrentTabIndex(currentTabIndex);
     return tabWidget;
 }
 
 void DockContainer::tabbedView(DockableWindow *view, TabWidget *tabWidget, int index, const QString &label)
 {
+    Q_D(DockContainer);
     int actIndex = index;
     if (nullptr == tabWidget)
     {
-        if (_rootSplitterList.isEmpty() || _rootSplitterList[0] == nullptr)
+        if (d->rootSplitterList.isEmpty() || d->rootSplitterList[0] == nullptr)
         {
             return;
         }
-        TabWidget *rootTab = qobject_cast<TabWidget *>(_rootSplitterList[0]->widget(0));
+        TabWidget *rootTab = qobject_cast<TabWidget *>(d->rootSplitterList[0]->widget(0));
         if (rootTab == nullptr)
         {
             return;
@@ -397,7 +434,7 @@ void DockContainer::tabbedView(DockableWindow *view, TabWidget *tabWidget, int i
     //save for searching
     view->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     view->setMinimumSize(WIDGET_MIN_SIZE, WIDGET_MIN_SIZE);
-    _dockableWindowPool->registerWindow(view);
+    d->dockableWindowPool->registerWindow(view);
     connect(view, &DockableWindow::destroyed, this, &DockContainer::onDockableWindowDestroyed);
 }
 
@@ -409,7 +446,8 @@ TabWidget *DockContainer::floatView(DockableWindow *view, const QString& title)
 
 void DockContainer::floatView(uint nWindowType)
 {
-    auto pDockableWindow = _dockableWindowPool->newWindow(nWindowType);
+    Q_D(DockContainer);
+    auto pDockableWindow = d->dockableWindowPool->newWindow(nWindowType);
     if (pDockableWindow != nullptr)
     {
         floatView(pDockableWindow, pDockableWindow->getTitle());
@@ -418,9 +456,10 @@ void DockContainer::floatView(uint nWindowType)
 
 void DockContainer::activeView(uint nWindowType)
 {
-    if (_dockableWindowPool->hasVisibleWindow(nWindowType))
+    Q_D(DockContainer);
+    if (d->dockableWindowPool->hasVisibleWindow(nWindowType))
     {
-        auto pDockableWindow = _dockableWindowPool->getOneExistedWindow(nWindowType);
+        auto pDockableWindow = d->dockableWindowPool->getOneExistedWindow(nWindowType);
         if (pDockableWindow != nullptr)
         {
             TabWidget *pParentTabWidget = getParentTabWidget(pDockableWindow);
@@ -438,6 +477,7 @@ void DockContainer::activeView(uint nWindowType)
 
 TabWidget *DockContainer::floatView(QWidget *view, const QString& title, QPoint cusPos)
 {
+    Q_D(DockContainer);
     Splitter *rootSplitter = createSplitterWidget();
     TabWidget *tabWidget = createTabWidget();
     tabWidget->addTab(view, title);
@@ -448,7 +488,7 @@ TabWidget *DockContainer::floatView(QWidget *view, const QString& title, QPoint 
     layout->setSpacing(0);
     layout->addWidget(rootSplitter);
 
-    QWidget *floatWindow = new QWidget(_dockRootWidget);
+    QWidget *floatWindow = new QWidget(d->dockRootWidget);
     floatWindow->setAttribute(Qt::WA_DeleteOnClose);
     floatWindow->setLayout(layout);
     floatWindow->setWindowFlags(Qt::Window);
@@ -463,9 +503,9 @@ TabWidget *DockContainer::floatView(QWidget *view, const QString& title, QPoint 
     relocateFloatWindowGeometry(floatWindow, geo);
 
     //save for searching
-    _dockableWindowPool->registerWindow(qobject_cast<DockableWindow*>(view));
+    d->dockableWindowPool->registerWindow(qobject_cast<DockableWindow*>(view));
     connect(view, &DockableWindow::destroyed, this, &DockContainer::onDockableWindowDestroyed);
-    _rootSplitterList.append(rootSplitter);
+    d->rootSplitterList.append(rootSplitter);
     connect(rootSplitter, &Splitter::destroyed, this, &DockContainer::onSplitterDestroyed);
     connect(rootSplitter, &Splitter::destroyed, floatWindow, &QWidget::deleteLater);
     return tabWidget;
@@ -473,10 +513,11 @@ TabWidget *DockContainer::floatView(QWidget *view, const QString& title, QPoint 
 
 void DockContainer::relocateFloatWindowGeometry(QWidget *floatWindow, QRect geometry)
 {
+    Q_D(DockContainer);
     QRect rect = geometry;
-    if (_sourceTabWidget != nullptr)
+    if (d->sourceTabWidget != nullptr)
     {
-        rect = _sourceTabWidget->rect();
+        rect = d->sourceTabWidget->rect();
         rect.moveCenter(geometry.center());
     }
     rect = getNearestRectInDesktopRect(rect, rect.center());
@@ -509,18 +550,20 @@ QRect DockContainer::getNearestRectInDesktopRect(QRect sourceRect, const QPoint&
 
 TabWidget *DockContainer::createTabWidget()
 {
+    Q_D(DockContainer);
     TabWidget *tabWidget = new TabWidget();
     tabWidget->tabBar()->installEventFilter(this);
     tabWidget->setAttribute(Qt::WA_DeleteOnClose);
     //save for searching
-    _tabBarSet.insert(tabWidget->tabBar());
+    d->tabBarSet.insert(tabWidget->tabBar());
     connect(tabWidget->tabBar(), &TabBar::destroyed, this, &DockContainer::onTabBarDestroyed);
     return tabWidget;
 }
 
 bool DockContainer::eventFilter(QObject *watched, QEvent *event)
 {
-    if (_filterSwitch && watched != this) //tarbars
+    Q_D(DockContainer);
+    if (d->filterSwitch && watched != this) //tarbars
     {
         switch (event->type())
         {
@@ -545,12 +588,12 @@ bool DockContainer::eventFilter(QObject *watched, QEvent *event)
             }
             case QEvent::KeyPress:
             {
-                if (_isDragging)
+                if (d->isDragging)
                 {
                     QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
                     if (keyEvent->key() == Qt::Key_Escape)
                     {
-                        _isDraggingCancelled = true;
+                        d->isDraggingCancelled = true;
                         endDragging(QPoint(-1, -1));
                     }
                 }
@@ -569,25 +612,27 @@ bool DockContainer::eventFilter(QObject *watched, QEvent *event)
 
 void DockContainer::tabBarMousePressEvent(QObject *watched, QEvent *event)
 {
+    Q_D(DockContainer);
     (void)watched;
 
     QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
-    _mousePressPos = mouseEvent->globalPosition().toPoint();
+    d->mousePressPos = mouseEvent->globalPosition().toPoint();
 }
 
 void DockContainer::tabBarMouseReleaseEvent(QObject *watched, QEvent *event)
 {
+    Q_D(DockContainer);
     (void)watched;
-    if (_isDraggingCancelled)
+    if (d->isDraggingCancelled)
     {
-        _isDraggingCancelled = false;
+        d->isDraggingCancelled = false;
     }
     else
     {
         QMouseEvent* mouseEvent = static_cast<QMouseEvent *>(event);
         endDragging(mouseEvent->globalPosition().toPoint());
     }
-    for (auto iter = _tabBarSet.begin(); iter != _tabBarSet.end(); iter++)
+    for (auto iter = d->tabBarSet.begin(); iter != d->tabBarSet.end(); iter++)
     {
         QWidget *tabBar = *iter;
         if (tabBar != nullptr)
@@ -599,18 +644,19 @@ void DockContainer::tabBarMouseReleaseEvent(QObject *watched, QEvent *event)
             }
         }
     }
-    _mousePressPos.setX(-1);
-    _mousePressPos.setY(-1);
+    d->mousePressPos.setX(-1);
+    d->mousePressPos.setY(-1);
 }
 
 void DockContainer::tabBarMouseMoveEvent(QObject *watched, QEvent *event)
 {
+    Q_D(DockContainer);
     QMouseEvent* mouseEvent = static_cast<QMouseEvent *>(event);
-    if ((mouseEvent->globalPosition().toPoint() - _mousePressPos).manhattanLength() > QApplication::startDragDistance())
+    if ((mouseEvent->globalPosition().toPoint() - d->mousePressPos).manhattanLength() > QApplication::startDragDistance())
     {
         TabBar *tabBar = qobject_cast<TabBar *>(watched);
         beginDragging(tabBar);
-        if (_isDragging)
+        if (d->isDragging)
         {
             showDragging(mouseEvent->globalPosition().toPoint());
         }
@@ -619,14 +665,15 @@ void DockContainer::tabBarMouseMoveEvent(QObject *watched, QEvent *event)
 
 void DockContainer::tabBarContextMenuEvent(QObject *watched, QEvent *event)
 {
+    Q_D(DockContainer);
     QContextMenuEvent *contexMenuEvent = static_cast<QContextMenuEvent*>(event);
     TabBar *tabBar = qobject_cast<TabBar *>(watched);
-    _contextMenuTabIndex = tabBar->tabAt(contexMenuEvent->pos());
-    _contextMenuTabWidget = getParentTabWidget(tabBar);
-    if (_contextMenuTabIndex >= 0 && _contextMenuTabWidget != nullptr)
+    d->contextMenuTabIndex = tabBar->tabAt(contexMenuEvent->pos());
+    d->contextMenuTabWidget = getParentTabWidget(tabBar);
+    if (d->contextMenuTabIndex >= 0 && d->contextMenuTabWidget != nullptr)
     {
         QMenu *menu = new QMenu();
-        DockableWindow *view = qobject_cast<DockableWindow*>(_contextMenuTabWidget->widget(_contextMenuTabIndex));
+        DockableWindow *view = qobject_cast<DockableWindow*>(d->contextMenuTabWidget->widget(d->contextMenuTabIndex));
         if (view != nullptr)
         {
             view->onContextMenu(menu);
@@ -646,15 +693,16 @@ void DockContainer::tabBarContextMenuEvent(QObject *watched, QEvent *event)
 
 void DockContainer::createMaxmizeAction(QMenu *parentMenu)
 {
+    Q_D(DockContainer);
     QAction* maxmizeTabAction = parentMenu->addAction(QStringLiteral("最大化"));
-    if (_maxmizedWindow != nullptr)
+    if (d->maxmizedWindow != nullptr)
     {
         maxmizeTabAction->setCheckable(true);
         maxmizeTabAction->setChecked(true);
     }
-    if (_contextMenuTabWidget != _maxmizedTempTabWidget)
+    if (d->contextMenuTabWidget != d->maxmizedTempTabWidget)
     {
-        if (!_rootSplitterList.isEmpty() && getRootSplitter(_contextMenuTabWidget) != _rootSplitterList[0])
+        if (!d->rootSplitterList.isEmpty() && getRootSplitter(d->contextMenuTabWidget) != d->rootSplitterList[0])
         {
             maxmizeTabAction->setEnabled(false);
         }
@@ -664,12 +712,13 @@ void DockContainer::createMaxmizeAction(QMenu *parentMenu)
 
 void DockContainer::createCloseTabAction(QMenu *parentMenu, DockableWindow *view)
 {
+    Q_D(DockContainer);
     QAction* closeTabAciton = parentMenu->addAction(QStringLiteral("关闭"));
-    if (_maxmizedWindow != nullptr || !view->canClose())
+    if (d->maxmizedWindow != nullptr || !view->canClose())
     {
         closeTabAciton->setEnabled(false);
     }
-    else if (isLastTabInMainWindow(_contextMenuTabWidget->tabBar()))
+    else if (isLastTabInMainWindow(d->contextMenuTabWidget->tabBar()))
     {
         closeTabAciton->setEnabled(false);
     }
@@ -678,6 +727,7 @@ void DockContainer::createCloseTabAction(QMenu *parentMenu, DockableWindow *view
 
 void DockContainer::creatAddTabMenu(QMenu *parentMenu)
 {
+    Q_D(DockContainer);
     QSignalMapper *signalMapper = new QSignalMapper(parentMenu);
     QMenu *addTabMenu = parentMenu->addMenu(QStringLiteral("打开"));
     auto allFactorires = WindowFactoryManager::getInstance()->getAllFactorys();
@@ -687,51 +737,53 @@ void DockContainer::creatAddTabMenu(QMenu *parentMenu)
         if (factory)
         {
             QAction* action = addTabMenu->addAction(factory->getTitle());
-            if (factory->isUnique() && _dockableWindowPool->hasVisibleWindow(iter->first))
-            {                // If the window is globally unique, disable the menu item
+            if (factory->isUnique() && d->dockableWindowPool->hasVisibleWindow(iter->first))
+            {
+                // If the window is globally unique, disable the menu item
                 action->setEnabled(false);
                 continue;
             }
             connect(action, SIGNAL(triggered(bool)), signalMapper, SLOT(map()));
             signalMapper->setMapping(action, (uint)iter->first);
-            if (_contextMenuTabWidget == _maxmizedTempTabWidget)
+            if (d->contextMenuTabWidget == d->maxmizedTempTabWidget)
             {
                 addTabMenu->setEnabled(false);
             }
-        }    
+        }
     }
     connect(signalMapper, &QSignalMapper::mappedInt, this, &DockContainer::onAddTab);
 }
 
 bool DockContainer::isLastTabInMainWindow(TabBar *tabBar)
 {
+    Q_D(DockContainer);
     if (tabBar->count() > 1)
     {
         return false;
     }
-    if (!_parentWidget->isAncestorOf(tabBar))
+    if (!d->parentWidget->isAncestorOf(tabBar))
     {
         return false;
     }
-    if (_rootSplitterList.isEmpty() || getRootSplitter(tabBar) != _rootSplitterList[0])
+    if (d->rootSplitterList.isEmpty() || getRootSplitter(tabBar) != d->rootSplitterList[0])
     {
         return false;
     }
 
-    for (auto iter = _tabBarSet.begin(); iter != _tabBarSet.end(); iter++)
+    for (auto iter = d->tabBarSet.begin(); iter != d->tabBarSet.end(); iter++)
     {
         if (*iter == tabBar)
         {
             continue;
         }
-        if (_maxmizedTempTabWidget != nullptr)
+        if (d->maxmizedTempTabWidget != nullptr)
         {
-            if (*iter == _maxmizedTempTabWidget->tabBar())
+            if (*iter == d->maxmizedTempTabWidget->tabBar())
             {
                 continue;
             }
         }
-        if (_rootSplitterList.isEmpty() || getRootSplitter(*iter) != _rootSplitterList[0])
+        if (d->rootSplitterList.isEmpty() || getRootSplitter(*iter) != d->rootSplitterList[0])
         {
             continue;
         }
@@ -742,11 +794,12 @@ bool DockContainer::isLastTabInMainWindow(TabBar *tabBar)
 
 void DockContainer::beginDragging(TabBar *tabBar)
 {
-    if (!_isDragging)
+    Q_D(DockContainer);
+    if (!d->isDragging)
     {
-        if (_maxmizedTempTabWidget != nullptr)
+        if (d->maxmizedTempTabWidget != nullptr)
         {
-            if (_maxmizedTempTabWidget->tabBar() == tabBar)
+            if (d->maxmizedTempTabWidget->tabBar() == tabBar)
             {
                 return;
             }
@@ -755,7 +808,7 @@ void DockContainer::beginDragging(TabBar *tabBar)
         {
             return;
         }
-        for (auto iter = _tabBarSet.begin(); iter != _tabBarSet.end(); iter++)
+        for (auto iter = d->tabBarSet.begin(); iter != d->tabBarSet.end(); iter++)
         {
             QWidget *tabBar = *iter;
             if (tabBar != nullptr)
@@ -767,19 +820,19 @@ void DockContainer::beginDragging(TabBar *tabBar)
                 }
             }
         }
-        _sourceTabWidget = qobject_cast<TabWidget *>(tabBar->parent());
-        QPoint localPoint = tabBar->mapFromGlobal(_mousePressPos);
-        _sourceTabIndex = tabBar->tabAt(localPoint);
-        if (_sourceTabIndex >= 0)
+        d->sourceTabWidget = qobject_cast<TabWidget *>(tabBar->parent());
+        QPoint localPoint = tabBar->mapFromGlobal(d->mousePressPos);
+        d->sourceTabIndex = tabBar->tabAt(localPoint);
+        if (d->sourceTabIndex >= 0)
         {
-            _sourceTabText = _sourceTabWidget->tabText(_sourceTabIndex);
-            _sourceView = _sourceTabWidget->widget(_sourceTabIndex);
-            if (_sourceView == nullptr)
+            d->sourceTabText = d->sourceTabWidget->tabText(d->sourceTabIndex);
+            d->sourceView = d->sourceTabWidget->widget(d->sourceTabIndex);
+            if (d->sourceView == nullptr)
             {
                 return;
             }
-            _sourceTabWidget->removeOnlyTab(_sourceTabIndex);
-            _isDragging = true;
+            d->sourceTabWidget->removeOnlyTab(d->sourceTabIndex);
+            d->isDragging = true;
             qApp->installEventFilter(this);
         }
     }
@@ -787,31 +840,32 @@ void DockContainer::beginDragging(TabBar *tabBar)
 
 void DockContainer::endDragging(QPoint pos)
 {
-    if (_isDragging)
+    Q_D(DockContainer);
+    if (d->isDragging)
     {
-        if (_isDraggingCancelled && _hoverWidgetData.type == TAB)
+        if (d->isDraggingCancelled && d->hoverWidgetData.type == TAB)
         {
                 // When dragging to tab hotspot display state, cancellation is not allowed. Fixed crash bug in 2020.10
                 return;
             }
         qApp->removeEventFilter(this);
-        if (_isDraggingCancelled && _sourceTabWidget != nullptr && _hoverWidgetData.horverWidget != _sourceTabWidget->tabBar())
+        if (d->isDraggingCancelled && d->sourceTabWidget != nullptr && d->hoverWidgetData.horverWidget != d->sourceTabWidget->tabBar())
         {
             //if be cancelled
             endDragByCancelled();
         }
-        else if (_hoverWidgetData.type == FLOAT)
+        else if (d->hoverWidgetData.type == FLOAT)
         {
             endDragByFloated(pos);
         }
         else
         {
-            _parentWidget->setUpdatesEnabled(false);
-            if (_hoverWidgetData.type == TAB)
+            d->parentWidget->setUpdatesEnabled(false);
+            if (d->hoverWidgetData.type == TAB)
             {
                 endDragByTabbled(pos);
             }
-            else if (_hoverWidgetData.type == DOCK_AT_ROOT)
+            else if (d->hoverWidgetData.type == DOCK_AT_ROOT)
             {
                 endDragByDockedAtRoot(pos);
             }
@@ -820,63 +874,65 @@ void DockContainer::endDragging(QPoint pos)
                 endDragByDockedAtChild(pos);
             }
         }
-        if (_sourceTabWidget != nullptr && _sourceTabWidget->widgetCount() == 0)
+        if (d->sourceTabWidget != nullptr && d->sourceTabWidget->widgetCount() == 0)
         {
-            _sourceTabWidget->deleteLater();
+            d->sourceTabWidget->deleteLater();
         }
-        _hoverWidgetData.type = FLOAT;
-        _hoverWidgetData.horverWidget = nullptr;
-        _isDragging = false;
-        _sourceTabIndex = -1;
-        _sourceTabText = "";
-        _sourceView = nullptr;
-        _sourceTabWidget = nullptr;
+        d->hoverWidgetData.type = FLOAT;
+        d->hoverWidgetData.horverWidget = nullptr;
+        d->isDragging = false;
+        d->sourceTabIndex = -1;
+        d->sourceTabText = "";
+        d->sourceView = nullptr;
+        d->sourceTabWidget = nullptr;
         hideTemplateForm();
         QApplication::processEvents();
-        _parentWidget->setUpdatesEnabled(true);
+        d->parentWidget->setUpdatesEnabled(true);
         qApp->removeEventFilter(this);
     }
 }
 
 void DockContainer::endDragByTabbled(QPoint pos)
 {
-    TabBar *targetTabBar = qobject_cast<TabBar *>(_hoverWidgetData.horverWidget);
+    Q_D(DockContainer);
+    TabBar *targetTabBar = qobject_cast<TabBar *>(d->hoverWidgetData.horverWidget);
     if (targetTabBar == nullptr)
     {
         return;
     }
     TabWidget *targetTabWidget = qobject_cast<TabWidget *>(targetTabBar->parent());
-    if (targetTabWidget == nullptr || _sourceTabWidget == nullptr || _sourceView == nullptr)
+    if (targetTabWidget == nullptr || d->sourceTabWidget == nullptr || d->sourceView == nullptr)
     {
         return;
     }
     QPoint localPos = targetTabWidget->tabBar()->mapFromGlobal(pos);
     int index = targetTabWidget->tabBar()->tabAt(localPos);
     targetTabWidget->removeTempTab();
-    _sourceTabWidget->removeOnlyWidget(_sourceView);
-    int newIndex = targetTabWidget->insertTab(index, _sourceView, _sourceTabText);
+    d->sourceTabWidget->removeOnlyWidget(d->sourceView);
+    int newIndex = targetTabWidget->insertTab(index, d->sourceView, d->sourceTabText);
     targetTabWidget->setCurrentTabIndex(newIndex);
     targetTabWidget->setCurrentWidgetIndex(newIndex);
 }
 
 void DockContainer::endDragByDockedAtRoot(QPoint pos)
 {
-    if (_sourceTabWidget == nullptr || _sourceView == nullptr || _hoverWidgetData.horverWidget == nullptr)
+    Q_D(DockContainer);
+    if (d->sourceTabWidget == nullptr || d->sourceView == nullptr || d->hoverWidgetData.horverWidget == nullptr)
     {
         return;
     }
     TabWidget *newTabWidget = createTabWidget();
-    _sourceTabWidget->removeOnlyWidget(_sourceView);
-    newTabWidget->addTab(_sourceView, _sourceTabText);
-    Splitter *splitter = _hoverWidgetData.horverWidget->findChild<Splitter *>();
+    d->sourceTabWidget->removeOnlyWidget(d->sourceView);
+    newTabWidget->addTab(d->sourceView, d->sourceTabText);
+    Splitter *splitter = d->hoverWidgetData.horverWidget->findChild<Splitter *>();
     if (splitter == nullptr)
     {
         Q_ASSERT(false);
         return;
     }
 
-    QPoint locatPoint = _hoverWidgetData.horverWidget->mapFromGlobal(pos);
-    RegionType type = getRegionType(locatPoint, _hoverWidgetData.horverWidget->rect());
+    QPoint locatPoint = d->hoverWidgetData.horverWidget->mapFromGlobal(pos);
+    RegionType type = getRegionType(locatPoint, d->hoverWidgetData.horverWidget->rect());
     switch (type)
     {
     case TOP:
@@ -906,18 +962,19 @@ void DockContainer::endDragByDockedAtRoot(QPoint pos)
 
 void DockContainer::endDragByDockedAtChild(QPoint pos)
 {
-    if (_hoverWidgetData.horverWidget == nullptr || _sourceTabWidget == nullptr || _sourceView == nullptr)
+    Q_D(DockContainer);
+    if (d->hoverWidgetData.horverWidget == nullptr || d->sourceTabWidget == nullptr || d->sourceView == nullptr)
     {
         return;
     }
-    TabWidget *hoverTabWidget = getParentTabWidget(_hoverWidgetData.horverWidget);
+    TabWidget *hoverTabWidget = getParentTabWidget(d->hoverWidgetData.horverWidget);
     if (hoverTabWidget == nullptr)
     {
         return;
     }
     TabWidget *newTabWidget = createTabWidget();
-    _sourceTabWidget->removeOnlyWidget(_sourceView);
-    newTabWidget->addTab(_sourceView, _sourceTabText);
+    d->sourceTabWidget->removeOnlyWidget(d->sourceView);
+    newTabWidget->addTab(d->sourceView, d->sourceTabText);
     QPoint locatPoint = hoverTabWidget->mapFromGlobal(pos);
     RegionType type = getRegionType(locatPoint, hoverTabWidget->rect());
     switch (type)
@@ -1220,21 +1277,23 @@ QList<int> DockContainer::recalcRootSplitterSizesAfterAddNew(QList<int> oldSizes
 
 void DockContainer::endDragByFloated(QPoint pos)
 {
-    _sourceTabWidget->removeOnlyWidget(_sourceView);
-    floatView(_sourceView, _sourceTabText, pos);
+    Q_D(DockContainer);
+    d->sourceTabWidget->removeOnlyWidget(d->sourceView);
+    floatView(d->sourceView, d->sourceTabText, pos);
 }
 
 void DockContainer::endDragByCancelled()
 {
-    if (_sourceTabWidget == nullptr)
+    Q_D(DockContainer);
+    if (d->sourceTabWidget == nullptr)
     {
         return;
     }
-    _sourceTabWidget->addTempTab(_sourceTabIndex, _sourceTabText);
-    _sourceTabWidget->setCurrentTabIndex(_sourceTabIndex);
-    if (_hoverWidgetData.type == TAB && _hoverWidgetData.horverWidget != nullptr)
+    d->sourceTabWidget->addTempTab(d->sourceTabIndex, d->sourceTabText);
+    d->sourceTabWidget->setCurrentTabIndex(d->sourceTabIndex);
+    if (d->hoverWidgetData.type == TAB && d->hoverWidgetData.horverWidget != nullptr)
     {
-        TabBar *oldTargetBar = qobject_cast<TabBar *>(_hoverWidgetData.horverWidget);
+        TabBar *oldTargetBar = qobject_cast<TabBar *>(d->hoverWidgetData.horverWidget);
         if (oldTargetBar != nullptr)
         {
             TabWidget *oldHoverTabWidget = qobject_cast<TabWidget *>(oldTargetBar->parent());
@@ -1244,12 +1303,12 @@ void DockContainer::endDragByCancelled()
             }
         }
     }
-    TabBar *sourceTabBar = _sourceTabWidget->tabBar();
-    if (sourceTabBar == nullptr || _sourceTabIndex < 0)
+    TabBar *sourceTabBar = d->sourceTabWidget->tabBar();
+    if (sourceTabBar == nullptr || d->sourceTabIndex < 0)
     {
         return;
     }
-    QPoint tabCenter = sourceTabBar->tabRect(_sourceTabIndex).center();
+    QPoint tabCenter = sourceTabBar->tabRect(d->sourceTabIndex).center();
     auto gloablPointer = sourceTabBar->mapToGlobal(tabCenter);
     QMouseEvent mouseEventRlease(
         QEvent::MouseButtonRelease,
@@ -1316,15 +1375,16 @@ TabWidget *DockContainer::getParentTabWidget(QWidget *widget)
 
 void DockContainer::showDragging(QPoint currrentCurPos)
 {
+    Q_D(DockContainer);
     HoverWidgetData hoverData;
     getHoverWidgetData(currrentCurPos, hoverData);
-    if (hoverData.horverWidget == nullptr || hoverData.horverWidget != _hoverWidgetData.horverWidget)
+    if (hoverData.horverWidget == nullptr || hoverData.horverWidget != d->hoverWidgetData.horverWidget)
     {
         onHoverWidgetChanged(currrentCurPos, hoverData);
     }
-    if (_hoverWidgetData.type != hoverData.type)
+    if (d->hoverWidgetData.type != hoverData.type)
     {
-        _hoverWidgetData.type = hoverData.type;
+        d->hoverWidgetData.type = hoverData.type;
     }
     switch (hoverData.type)
     {
@@ -1355,18 +1415,19 @@ void DockContainer::showDragging(QPoint currrentCurPos)
 
 void DockContainer::getHoverWidgetData(QPoint curPos, HoverWidgetData &data)
 {
-    if (_hoverWidgetData.type == TAB
-        && _hoverWidgetData.horverWidget->rect().contains(_hoverWidgetData.horverWidget->mapFromGlobal(curPos)))
+    Q_D(DockContainer);
+    if (d->hoverWidgetData.type == TAB
+        && d->hoverWidgetData.horverWidget->rect().contains(d->hoverWidgetData.horverWidget->mapFromGlobal(curPos)))
     {
-        data = _hoverWidgetData;
+        data = d->hoverWidgetData;
         return;
     }
 
     QWidget *hoverWidget = this->widgetAt(curPos);
-    if (_maxmizedWindow != nullptr)
+    if (d->maxmizedWindow != nullptr)
     {
-        if (_parentWidget->isAncestorOf(hoverWidget)
-            || hoverWidget->isAncestorOf(_parentWidget))
+        if (d->parentWidget->isAncestorOf(hoverWidget)
+            || hoverWidget->isAncestorOf(d->parentWidget))
         {
             data.type = FLOAT;
             return;
@@ -1379,7 +1440,7 @@ void DockContainer::getHoverWidgetData(QPoint curPos, HoverWidgetData &data)
         return;
     }
 
-    if (_tabBarSet.contains(hoverWidget))
+    if (d->tabBarSet.contains(hoverWidget))
     {
         data.horverWidget = hoverWidget;
         data.type = TAB;
@@ -1388,7 +1449,7 @@ void DockContainer::getHoverWidgetData(QPoint curPos, HoverWidgetData &data)
 
     while (nullptr != hoverWidget)
     {
-        if (_dockableWindowPool->isDockedWindow(hoverWidget))
+        if (d->dockableWindowPool->isDockedWindow(hoverWidget))
             break;
         hoverWidget = hoverWidget->parentWidget();
     }
@@ -1396,7 +1457,7 @@ void DockContainer::getHoverWidgetData(QPoint curPos, HoverWidgetData &data)
     if (nullptr != hoverWidget)
     {
         TabWidget *tabWiget = getParentTabWidget(hoverWidget);
-        if (tabWiget == _sourceTabWidget && _sourceTabWidget->widgetCount() == 1)
+        if (tabWiget == d->sourceTabWidget && d->sourceTabWidget->widgetCount() == 1)
         {
             if(qobject_cast<QTabBar *>(hoverWidget) != nullptr)
             {
@@ -1420,11 +1481,12 @@ void DockContainer::getHoverWidgetData(QPoint curPos, HoverWidgetData &data)
 
 void DockContainer::onHoverWidgetChanged(QPoint curPos, HoverWidgetData &newHoverdata)
 {
-    _filterSwitch = false;
+    Q_D(DockContainer);
+    d->filterSwitch = false;
 
-    if (_hoverWidgetData.type == TAB)
+    if (d->hoverWidgetData.type == TAB)
     {
-        TabBar *oldTargetBar = qobject_cast<TabBar *>(_hoverWidgetData.horverWidget);
+        TabBar *oldTargetBar = qobject_cast<TabBar *>(d->hoverWidgetData.horverWidget);
         QPoint tabCenter = oldTargetBar->tabRect(oldTargetBar->currentIndex()).center();
         auto gloablPointer = oldTargetBar->mapToGlobal(tabCenter);
 
@@ -1435,7 +1497,7 @@ void DockContainer::onHoverWidgetChanged(QPoint curPos, HoverWidgetData &newHove
             Qt::LeftButton,
             Qt::LeftButton,
             Qt::NoModifier);
-        QCoreApplication::sendEvent(_hoverWidgetData.horverWidget, &mouseEventRlease);
+        QCoreApplication::sendEvent(d->hoverWidgetData.horverWidget, &mouseEventRlease);
 
         TabWidget *oldHoverTabWidget = qobject_cast<TabWidget *>(oldTargetBar->parent());
         oldHoverTabWidget->removeTempTab();
@@ -1446,7 +1508,7 @@ void DockContainer::onHoverWidgetChanged(QPoint curPos, HoverWidgetData &newHove
         TabBar *targetBar = qobject_cast<TabBar *>(newHoverdata.horverWidget);
         int tempTabIndex = targetBar->tabAt(targetBar->mapFromGlobal(curPos));
         TabWidget *targetTabWidget = qobject_cast<TabWidget *>(targetBar->parent());
-        targetTabWidget->addTempTab(tempTabIndex, _sourceTabText);
+        targetTabWidget->addTempTab(tempTabIndex, d->sourceTabText);
         targetBar->setAcceptMoveEvent(true);
 
         QPoint tabCenter;
@@ -1466,26 +1528,27 @@ void DockContainer::onHoverWidgetChanged(QPoint curPos, HoverWidgetData &newHove
             Qt::NoModifier);
         QCoreApplication::sendEvent(newHoverdata.horverWidget, &mouseEventpress);
     }
-    if (_hoverWidgetData.horverWidget == nullptr)
+    if (d->hoverWidgetData.horverWidget == nullptr)
     {
         //when first time come here
-        TabBar *oldTargetBar = qobject_cast<TabBar *>(_sourceTabWidget->tabBar());
+        TabBar *oldTargetBar = qobject_cast<TabBar *>(d->sourceTabWidget->tabBar());
         {
             oldTargetBar->setAcceptMoveEvent(false);
         }
     }
-    _filterSwitch = true;
-    _hoverWidgetData = newHoverdata;
+    d->filterSwitch = true;
+    d->hoverWidgetData = newHoverdata;
 }
 
 void DockContainer::whenDragOnTabBar(TabBar *targetTabBar, QPoint   targetPos)
 {
+    Q_D(DockContainer);
     hideTemplateForm();
-    if (_sourceTabWidget->tabBar() == targetTabBar)
+    if (d->sourceTabWidget->tabBar() == targetTabBar)
     {
         return;
     }
-    _filterSwitch = false;
+    d->filterSwitch = false;
     QMouseEvent mouseEventMove(
         QEvent::MouseMove,
         QPointF(targetTabBar->mapFromGlobal(targetPos)),
@@ -1494,34 +1557,36 @@ void DockContainer::whenDragOnTabBar(TabBar *targetTabBar, QPoint   targetPos)
         Qt::LeftButton,
         Qt::NoModifier);
     QCoreApplication::sendEvent(targetTabBar, &mouseEventMove);
-    _filterSwitch = true;
+    d->filterSwitch = true;
 }
 
 void DockContainer::whenDragIngore(QPoint cursorPos)
 {
+    Q_D(DockContainer);
     createTemplateForm();
-    _templateFormOnDrag->resize(calcFloatTemplateFormSize());
-    _templateFormOnDrag->setWindowOpacity(0.8);
-    QRect rect = _templateFormOnDrag->rect();
+    d->templateFormOnDrag->resize(calcFloatTemplateFormSize());
+    d->templateFormOnDrag->setWindowOpacity(0.8);
+    QRect rect = d->templateFormOnDrag->rect();
     rect.moveCenter(cursorPos);
     rect = getNearestRectInDesktopRect(rect, cursorPos);
 
-    _templateFormOnDrag->move(rect.topLeft());
-    _templateFormOnDrag->raise();
-    _templateFormOnDrag->show();
+    d->templateFormOnDrag->move(rect.topLeft());
+    d->templateFormOnDrag->raise();
+    d->templateFormOnDrag->show();
 }
 
 void DockContainer::whenDragAcceptDock(QPoint cursorPos, bool isDockAtRoot)
 {
+    Q_D(DockContainer);
     createTemplateForm();
-    QWidget *hoverTabWidget = _hoverWidgetData.horverWidget;
+    QWidget *hoverTabWidget = d->hoverWidgetData.horverWidget;
     if (!isDockAtRoot)
     {
-        hoverTabWidget = getParentTabWidget(_hoverWidgetData.horverWidget);
+        hoverTabWidget = getParentTabWidget(d->hoverWidgetData.horverWidget);
     }
-    else if(!_rootSplitterList.isEmpty() && hoverTabWidget != nullptr && hoverTabWidget->isAncestorOf(_rootSplitterList[0]))
+    else if(!d->rootSplitterList.isEmpty() && hoverTabWidget != nullptr && hoverTabWidget->isAncestorOf(d->rootSplitterList[0]))
     {
-        hoverTabWidget = _rootSplitterList[0];
+        hoverTabWidget = d->rootSplitterList[0];
     }
     if (hoverTabWidget == nullptr)
     {
@@ -1531,7 +1596,7 @@ void DockContainer::whenDragAcceptDock(QPoint cursorPos, bool isDockAtRoot)
     RegionType type = getRegionType(locatPoint, hoverTabWidget->rect());
     if (type == CENTRAL)
     {
-        _hoverWidgetData.type = FLOAT;
+        d->hoverWidgetData.type = FLOAT;
         whenDragIngore(cursorPos);
     }
     else
@@ -1583,29 +1648,31 @@ void DockContainer::whenDragAcceptDock(QPoint cursorPos, bool isDockAtRoot)
         default:
             break;
         }
-        _templateFormOnDrag->setGeometry(rect);
-        _templateFormOnDrag->setWindowOpacity(1.0);
-        _templateFormOnDrag->raise();
-        _templateFormOnDrag->show();
+        d->templateFormOnDrag->setGeometry(rect);
+        d->templateFormOnDrag->setWindowOpacity(1.0);
+        d->templateFormOnDrag->raise();
+        d->templateFormOnDrag->show();
     }
 }
 
 void DockContainer::createTemplateForm()
 {
-    if (_templateFormOnDrag == nullptr)
+    Q_D(DockContainer);
+    if (d->templateFormOnDrag == nullptr)
     {
-        _templateFormOnDrag = new QTabWidget(nullptr);
-        _templateFormOnDrag->addTab(new QWidget(), _sourceTabText);
-        _templateFormOnDrag->setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::BypassWindowManagerHint);
-        _templateFormOnDrag->setAttribute(Qt::WA_TransparentForMouseEvents);
+        d->templateFormOnDrag = new QTabWidget(nullptr);
+        d->templateFormOnDrag->addTab(new QWidget(), d->sourceTabText);
+        d->templateFormOnDrag->setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::BypassWindowManagerHint);
+        d->templateFormOnDrag->setAttribute(Qt::WA_TransparentForMouseEvents);
     }
-    _templateFormOnDrag->setTabText(0, _sourceTabText);
+    d->templateFormOnDrag->setTabText(0, d->sourceTabText);
 }
 
 QSize DockContainer::calcFloatTemplateFormSize()
 {
-    int with = _sourceTabWidget->width();
-    int height = _sourceTabWidget->height();
+    Q_D(DockContainer);
+    int with = d->sourceTabWidget->width();
+    int height = d->sourceTabWidget->height();
     if (with < WIDGET_MIN_SIZE || height < WIDGET_MIN_SIZE)
     {
         return QSize(with, height);
@@ -1629,24 +1696,26 @@ QSize DockContainer::calcFloatTemplateFormSize()
 
 void DockContainer::hideTemplateForm()
 {
-    if (_templateFormOnDrag != nullptr)
+    Q_D(DockContainer);
+    if (d->templateFormOnDrag != nullptr)
     {
-        _templateFormOnDrag->hide();
+        d->templateFormOnDrag->hide();
     }
 }
 
 QWidget *DockContainer::widgetAt(QPoint p)
 {
-    if (_templateFormOnDrag != nullptr)
+    Q_D(DockContainer);
+    if (d->templateFormOnDrag != nullptr)
     {
-        _templateFormOnDrag->setMask(QRegion(_templateFormOnDrag->rect()));
+        d->templateFormOnDrag->setMask(QRegion(d->templateFormOnDrag->rect()));
     }
 
     QWidget *currentWidget = QApplication::widgetAt(p);
 
-    if (_templateFormOnDrag != nullptr)
+    if (d->templateFormOnDrag != nullptr)
     {
-        _templateFormOnDrag->clearMask();
+        d->templateFormOnDrag->clearMask();
     }
 
     QWidgetList topWindowList;
@@ -1671,7 +1740,7 @@ QWidget *DockContainer::widgetAt(QPoint p)
             continue;
         }
 
-        if (widget == _templateFormOnDrag)
+        if (widget == d->templateFormOnDrag)
         {
             continue;
         }
@@ -1747,11 +1816,12 @@ DockContainer::RegionType DockContainer::getRegionType(QPoint pt, QRect rect)
 
 void DockContainer::changeRootSplitter(Splitter *oldRootSplitter, Splitter *newRootSplitter)
 {
-    for (auto iter = _rootSplitterList.begin(); iter != _rootSplitterList.end(); iter++)
+    Q_D(DockContainer);
+    for (auto iter = d->rootSplitterList.begin(); iter != d->rootSplitterList.end(); iter++)
     {
         if (oldRootSplitter == *iter)
         {
-            if (iter != _rootSplitterList.begin())
+            if (iter != d->rootSplitterList.begin())
             {
                 (*iter)->disconnect((*iter)->parent());
                 connect(newRootSplitter, &Splitter::destroyed, oldRootSplitter->parent(), &QObject::deleteLater);
@@ -1764,15 +1834,16 @@ void DockContainer::changeRootSplitter(Splitter *oldRootSplitter, Splitter *newR
 
 void DockContainer::onSplitterDestroyed(QObject *obj)
 {
-    if (_isDisConnectAll)
+    Q_D(DockContainer);
+    if (d->isDisConnectAll)
     {
         return;
     }
-    for (auto iter = _rootSplitterList.begin(); iter != _rootSplitterList.end(); iter++)
+    for (auto iter = d->rootSplitterList.begin(); iter != d->rootSplitterList.end(); iter++)
     {
         if (obj == *iter)
         {
-            _rootSplitterList.erase(iter);
+            d->rootSplitterList.erase(iter);
             break;
         }
     }
@@ -1780,28 +1851,30 @@ void DockContainer::onSplitterDestroyed(QObject *obj)
 
 void DockContainer::onTabBarDestroyed(QObject *obj)
 {
-    if (_isDisConnectAll)
+    Q_D(DockContainer);
+    if (d->isDisConnectAll)
     {
         return;
     }
     QWidget *widget = qobject_cast<QWidget*>(obj);
-    auto iter = _tabBarSet.find(widget);
-    if (iter != _tabBarSet.end())
+    auto iter = d->tabBarSet.find(widget);
+    if (iter != d->tabBarSet.end())
     {
-        _tabBarSet.erase(iter);
+        d->tabBarSet.erase(iter);
     }
 }
 
 void DockContainer::onTabBarCloseTab()
 {
-    if (_isDisConnectAll)
+    Q_D(DockContainer);
+    if (d->isDisConnectAll)
     {
         return;
     }
-    QWidget *removedWidget = _contextMenuTabWidget->removeTabAndWidget(_contextMenuTabIndex);
-    if (_contextMenuTabWidget->widgetCount() == 0)
+    QWidget *removedWidget = d->contextMenuTabWidget->removeTabAndWidget(d->contextMenuTabIndex);
+    if (d->contextMenuTabWidget->widgetCount() == 0)
     {
-        _contextMenuTabWidget->deleteLater();
+        d->contextMenuTabWidget->deleteLater();
     }
     if (nullptr != removedWidget)
     {
@@ -1811,76 +1884,80 @@ void DockContainer::onTabBarCloseTab()
 
 void DockContainer::onAddTab(int windowType)
 {
-    auto window = _dockableWindowPool->newWindow(windowType);
-    this->tabbedView(window, _contextMenuTabWidget, -1, window->getTitle());
+    Q_D(DockContainer);
+    auto window = d->dockableWindowPool->newWindow(windowType);
+    this->tabbedView(window, d->contextMenuTabWidget, -1, window->getTitle());
 }
 
 void DockContainer::onDockableWindowDestroyed(QObject *obj)
 {
-    if (_isDisConnectAll)
+    Q_D(DockContainer);
+    if (d->isDisConnectAll)
     {
         return;
     }
     DockableWindow *w = static_cast<DockableWindow *>(obj);
-    _dockableWindowPool->deleteWindow(w);
+    d->dockableWindowPool->deleteWindow(w);
 }
 
 void DockContainer::onTabMaxmized()
 {
-    if (_maxmizedWindow == nullptr)
+    Q_D(DockContainer);
+    if (d->maxmizedWindow == nullptr)
     {
-        _maxmizedWindow = qobject_cast<DockableWindow*>(_contextMenuTabWidget->widget(_contextMenuTabIndex));
-        if (_maxmizedWindow == nullptr)
+        d->maxmizedWindow = qobject_cast<DockableWindow*>(d->contextMenuTabWidget->widget(d->contextMenuTabIndex));
+        if (d->maxmizedWindow == nullptr)
         {
             return;
         }
-        _maxmizedWindowSourceTabIndex = _contextMenuTabIndex;
-        _maxmizedWindowSourceTabWidget = _contextMenuTabWidget;
-        _contextMenuTabWidget->removeOnlyWidget(_maxmizedWindow);
+        d->maxmizedWindowSourceTabIndex = d->contextMenuTabIndex;
+        d->maxmizedWindowSourceTabWidget = d->contextMenuTabWidget;
+        d->contextMenuTabWidget->removeOnlyWidget(d->maxmizedWindow);
 
-        if (_maxmizedTempTabWidget == nullptr)
+        if (d->maxmizedTempTabWidget == nullptr)
         {
-            _maxmizedTempTabWidget  = createTabWidget();
-            _parentWidget->layout()->addWidget(_maxmizedTempTabWidget );
+            d->maxmizedTempTabWidget  = createTabWidget();
+            d->parentWidget->layout()->addWidget(d->maxmizedTempTabWidget );
         }
-        _maxmizedTempTabWidget ->addTab(_maxmizedWindow, _maxmizedWindow->getTitle());
-        _maxmizedTempTabWidget->show();
-        _dockRootWidget->hide();
+        d->maxmizedTempTabWidget ->addTab(d->maxmizedWindow, d->maxmizedWindow->getTitle());
+        d->maxmizedTempTabWidget->show();
+        d->dockRootWidget->hide();
     }
     else
     {
-        if (_maxmizedTempTabWidget != nullptr)
+        if (d->maxmizedTempTabWidget != nullptr)
         {
-            _maxmizedTempTabWidget->removeTabAndWidget(0);
-            _maxmizedTempTabWidget->hide();
+            d->maxmizedTempTabWidget->removeTabAndWidget(0);
+            d->maxmizedTempTabWidget->hide();
         }
-        if (_maxmizedWindowSourceTabWidget != nullptr && _maxmizedWindow != nullptr)
+        if (d->maxmizedWindowSourceTabWidget != nullptr && d->maxmizedWindow != nullptr)
         {
-            _maxmizedWindowSourceTabWidget->insertOnlyWidget(_maxmizedWindowSourceTabIndex, _maxmizedWindow);
+            d->maxmizedWindowSourceTabWidget->insertOnlyWidget(d->maxmizedWindowSourceTabIndex, d->maxmizedWindow);
         }
-        _dockRootWidget->show();
+        d->dockRootWidget->show();
 
-        _maxmizedWindow = nullptr;
-        _maxmizedWindowSourceTabIndex = -1;
-        _maxmizedWindowSourceTabWidget = nullptr;
+        d->maxmizedWindow = nullptr;
+        d->maxmizedWindowSourceTabIndex = -1;
+        d->maxmizedWindowSourceTabWidget = nullptr;
     }
 }
 
 QWidget *DockContainer::rootWidgetAt(QPoint pt)
 {
-    for (int i = 0; i < _rootSplitterList.size(); i++)
+    Q_D(DockContainer);
+    for (int i = 0; i < d->rootSplitterList.size(); i++)
     {
         if (i == 0)
         {
-            if (_parentWidget->frameGeometry().contains(pt))
+            if (d->parentWidget->frameGeometry().contains(pt))
             {
-                return _parentWidget;
+                return d->parentWidget;
             }
 
         }
-        else if (_rootSplitterList[i]->frameGeometry().contains(pt))
+        else if (d->rootSplitterList[i]->frameGeometry().contains(pt))
         {
-            return _rootSplitterList[i];
+            return d->rootSplitterList[i];
         }
     }
     return nullptr;
@@ -1888,12 +1965,13 @@ QWidget *DockContainer::rootWidgetAt(QPoint pt)
 
 QWidget *DockContainer::rootWidgetof(QWidget *childWidget)
 {
+    Q_D(DockContainer);
     Splitter *rootSplitter = getRootSplitter(childWidget);
     if (nullptr != rootSplitter)
     {
-        if (!_rootSplitterList.isEmpty() && rootSplitter == _rootSplitterList[0])
+        if (!d->rootSplitterList.isEmpty() && rootSplitter == d->rootSplitterList[0])
         {
-            return _parentWidget;
+            return d->parentWidget;
         }
         return rootSplitter;
     }
@@ -1902,29 +1980,32 @@ QWidget *DockContainer::rootWidgetof(QWidget *childWidget)
 
 void DockContainer::enableDrag(bool bEnable)
 {
-    _filterSwitch = bEnable;
+    Q_D(DockContainer);
+    d->filterSwitch = bEnable;
 }
 
 DockableWindow* DockContainer::getFirstVisibleWindow(uint type)
 {
-    return _dockableWindowPool->getFistVisibleWindow(type);
+    Q_D(DockContainer);
+    return d->dockableWindowPool->getFistVisibleWindow(type);
 }
 
 void DockContainer::initLayout()
 {
+    Q_D(DockContainer);
     //clear
-    _dockableWindowPool->hideAllWindowsBeforeChangeLayout();
-    _tabBarSet.clear();
-    _rootSplitterList.clear();
-    if (nullptr != _dockRootWidget)
+    d->dockableWindowPool->hideAllWindowsBeforeChangeLayout();
+    d->tabBarSet.clear();
+    d->rootSplitterList.clear();
+    if (nullptr != d->dockRootWidget)
     {
-        _parentWidget->layout()->removeWidget(_dockRootWidget);
-        delete _dockRootWidget;
+        d->parentWidget->layout()->removeWidget(d->dockRootWidget);
+        delete d->dockRootWidget;
     }
-    _dockRootWidget = new QWidget();
-    _parentWidget->layout()->addWidget(_dockRootWidget);
-    _dockRootWidget->setObjectName("DockRootWidget");
-    QHBoxLayout* carrierlaytout = new QHBoxLayout(_dockRootWidget);
+    d->dockRootWidget = new QWidget();
+    d->parentWidget->layout()->addWidget(d->dockRootWidget);
+    d->dockRootWidget->setObjectName("DockRootWidget");
+    QHBoxLayout* carrierlaytout = new QHBoxLayout(d->dockRootWidget);
     carrierlaytout->setSpacing(0);
     carrierlaytout->setContentsMargins(0, 0, 0, 0);
 
@@ -1933,7 +2014,7 @@ void DockContainer::initLayout()
     mainRootSplitter->setOrientation(Qt::Horizontal);
     connect(mainRootSplitter, &Splitter::destroyed, this, &DockContainer::onSplitterDestroyed);
     carrierlaytout->addWidget(mainRootSplitter);
-    _rootSplitterList.append(mainRootSplitter);
+    d->rootSplitterList.append(mainRootSplitter);
 
     Splitter *splitter_1 = createSplitterWidget();
     splitter_1->setOrientation(Qt::Vertical);
@@ -1942,7 +2023,7 @@ void DockContainer::initLayout()
     //默认窗口
     TabWidget *tabWidget_1_1 = createTabWidget();
     splitter_1->addWidget(tabWidget_1_1);
-    DockableWindow *fiterWindow = _dockableWindowPool->newWindow();
+    DockableWindow *fiterWindow = d->dockableWindowPool->newWindow();
     if (fiterWindow != nullptr)
     {
         connect(fiterWindow, &DockableWindow::destroyed, this, &DockContainer::onDockableWindowDestroyed);

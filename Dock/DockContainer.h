@@ -29,9 +29,12 @@ class DockableWindow;
 class DockableWindowPool;
 class Splitter;
 
+class DockContainerPrivate;
+
 class DOCKSHARED_EXPORT DockContainer : public QObject
 {
     Q_OBJECT
+    Q_DECLARE_PRIVATE(DockContainer)
 public:
     explicit DockContainer(QWidget *parent = nullptr);
     virtual ~DockContainer();
@@ -161,33 +164,8 @@ protected:
     void saveTabWidgetToJson(TabWidget *tabWidget, Qt::Orientation orient, QJsonObject &jsonObj);
 
 protected:
-    QWidget                *_dockRootWidget;
-    QList<Splitter *>       _rootSplitterList;
-    QSet<QWidget *>         _tabBarSet;
-
-    QPoint                  _mousePressPos;
-    TabWidget        	   *_sourceTabWidget;
-    int                     _sourceTabIndex;
-    QWidget                *_sourceView;
-    QString                 _sourceTabText;
-
-    QWidget                *_parentWidget;
-    HoverWidgetData         _hoverWidgetData;
-    bool                    _filterSwitch;
-    bool                    _isDragging;
-    QTabWidget             *_templateFormOnDrag;
-
-    TabWidget              *_contextMenuTabWidget;
-    int                     _contextMenuTabIndex;
-
-    DockableWindow         *_maxmizedWindow;
-    TabWidget              *_maxmizedWindowSourceTabWidget;
-    int                     _maxmizedWindowSourceTabIndex;
-    TabWidget              *_maxmizedTempTabWidget;
-    bool                    _isDisConnectAll;
-
-    DockableWindowPool     *_dockableWindowPool;
-    bool                    _isDraggingCancelled;
+    DockContainer(DockContainerPrivate &dd, QWidget *parent = nullptr);
+    DockContainerPrivate *d_ptr;
 };
 }
 
