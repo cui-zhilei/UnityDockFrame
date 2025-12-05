@@ -5,7 +5,6 @@
 #include <QApplication>
 #include <QJsonArray>
 #include <QJsonObject>
-#include <QSignalMapper>
 
 #include "MainWindow.h"
 #include "DockContainer.h"
@@ -28,16 +27,14 @@ MainWindow::MainWindow(QWidget *parent)
 
     QMenu *pWindowMenu = pMenuBar->addMenu(QStringLiteral("Window"));
     auto factories = dock::WindowFactoryManager::getInstance()->getAllFactorys();
-
-    auto signalMapper = new QSignalMapper(this);
     for (auto it = factories.begin(); it != factories.end(); it++)
     {
         dock::WindowFactory *pFac = it->second;
         QAction *pAction = pWindowMenu->addAction(pFac->getTitle());
-        connect(pAction, SIGNAL(triggered()), signalMapper, SLOT(map()));
-        signalMapper->setMapping(pAction, (int)(it->first));
+        connect(pAction, &QAction::triggered, [this, windowType = it->first]() {
+            this->onCreateWindow(windowType);
+            });
     }
-    connect(signalMapper, SIGNAL(mapped(int)), this, SLOT(onCreateWindow(int)));
 
     QMenu *pLayoutMenu = pMenuBar->addMenu(QStringLiteral("Layout"));
     QAction *pActionLayout1 = pLayoutMenu->addAction(QStringLiteral("Layout 1"));
