@@ -236,8 +236,16 @@ DockableWindow *window = factory->create(parentWidget);
 
 崔志雷
 
-## 版本
+## 版本v
 
 当前版本：1.0.0
 
 发布日期：2017年4月
+
+## 赞助支持
+
+如果您觉得本项目对您有帮助，欢迎通过微信或支付宝进行赞助支持：
+
+<img src="QRCode.jpg" alt="赞助二维码" width="194" height="276">
+
+感谢您的支持与鼓励！

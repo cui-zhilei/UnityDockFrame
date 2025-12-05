@@ -308,4 +308,12 @@ This project is suitable for Qt application development that requires flexible i
   - Support window type ID identification for easy management and search
   - Support window state saving and restoration
 
+## Donation
+
+If you find this project useful and would like to support its development, you can make a donation via WeChat Or Alipay:
+
+<img src="QRCode.jpg" alt="QRCode" width="194" height="276">
+
+Your support is greatly appreciated!
+
 ## Directory Structure
